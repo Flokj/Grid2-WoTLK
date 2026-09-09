@@ -316,6 +316,7 @@ local function Create(indicatorKey, dbx)
 	Bar.Disable = Bar_Disable
 	Bar.Layout = Bar_Layout
 	Bar.Update = Bar_Update
+	Bar.UpdateO = Bar_Update -- special case used by multibar and icons indicator (see UpdateFilter)
 	Bar.UpdateDB = Bar_UpdateDB
 	Bar_UpdateDB(Bar)
 	Grid2:RegisterIndicator(Bar, {"percent"})

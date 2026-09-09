@@ -86,7 +86,10 @@ end
 local updates = {}
 local EnableDelayedUpdates
 EnableDelayedUpdates = function()
-	CreateFrame("Frame", nil, Grid2LayoutFrame):SetScript("OnUpdate", function()
+	-- 3.3.5 backport: parent explicitly to UIParent. Grid2LayoutFrame may not
+	-- exist yet when the first icons indicator is set up at login, leaving the
+	-- driver parentless and its OnUpdate never firing (icons stay hidden).
+	CreateFrame("Frame", nil, UIParent):SetScript("OnUpdate", function()
 		for i = 1, #updates do
 			Icon_OnFrameUpdate(updates[i])
 		end
@@ -96,7 +99,10 @@ EnableDelayedUpdates = function()
 end
 
 local function Icon_Update(self, parent)
-	updates[#updates + 1] = parent[self.name]
+	-- 3.3.5 backport: update synchronously. The delayed-updates driver frame
+	-- proved unreliable here (icons stayed hidden with active statuses and no
+	-- errors); direct update is strictly more correct, batching was only an opt.
+	Icon_OnFrameUpdate(parent[self.name])
 end
 
 local function Icon_Layout(self, parent)
@@ -237,6 +243,7 @@ Grid2.setupFunc["icons"] = function(indicatorKey, dbx)
 	indicator.Layout = Icon_Layout
 	indicator.Disable = Icon_Disable
 	indicator.Update = Icon_Update
+	indicator.UpdateO = Icon_Update -- special case used by multibar and icons indicator (see UpdateFilter)
 	indicator.UpdateDB = Icon_UpdateDB
 	Icon_UpdateDB(indicator, dbx)
 	EnableDelayedUpdates()
