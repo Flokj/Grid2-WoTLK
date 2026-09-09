@@ -38,19 +38,22 @@ function indicator:Update(parent, unit)
 end
 
 function indicator:RegisterStatus(status, priority)
-	if self.priorities[status] then return end
-	self.priorities[status] = priority
-	self.statuses[#self.statuses + 1] = status
-	self:SortStatuses()
-	status:RegisterIndicator(self)
+	if not self.priorities[status] and not status.suspended then
+		self.priorities[status] = priority
+		self.statuses[#self.statuses + 1] = status
+		self:SortStatuses()
+		if self.UpdateHighlight then self:UpdateHighlight(status) end -- GridIndicatorEffects.lua
+	end
+	status:RegisterIndicator(self, priority)
 end
 
-function indicator:UnregisterStatus(status)
-	if not self.priorities[status] then return end
-	self.priorities[status] = nil
-	tremove(self.statuses, self:GetStatusIndex(status))
-	self:SortStatuses()
-	status:UnregisterIndicator(self)
+function indicator:UnregisterStatus(status, suspend)
+	if self.priorities[status] then
+		self.priorities[status] = nil
+		tremove(self.statuses, self:GetStatusIndex(status))
+		self:SortStatuses()
+	end
+	status:UnregisterIndicator(self, suspend)
 end
 
 function indicator:SortStatuses()
@@ -58,13 +61,17 @@ function indicator:SortStatuses()
 end
 
 function indicator:SetStatusPriority(status, priority)
-	if not self.priorities[status] then return end
-	self.priorities[status] = priority
-	self:SortStatuses()
+	if status then
+		if not status.suspended then
+			self.priorities[status] = priority
+			self:SortStatuses()
+		end
+		status.priorities[self] = priority
+	end
 end
 
 function indicator:GetStatusPriority(status)
-	return self.priorities[status]
+	return status and status.priorities[self]
 end
 
 function indicator:GetStatusIndex(status)
@@ -89,17 +96,23 @@ function indicator:GetCurrentStatus(unit)
 end
 
 -- Update functions
+-- 3.3.5 backport: OnUpdate may be temporarily nil (e.g. Icon:Disable() clears it
+-- while options rebuild the indicator). Never abort the whole frame update loop.
 function indicator:UpdateBlink(parent, unit)
 	local status, state = self:GetCurrentStatus(unit)
 	local func = self.GetBlinkFrame
 	if func then
 		Grid2Frame:SetBlinkEffect(func(self, parent), state == "blink")
 	end
-	self:OnUpdate(parent, unit, status)
+	if self.OnUpdate then
+		self:OnUpdate(parent, unit, status)
+	end
 end
 
 function indicator:UpdateNoBlink(parent, unit)
-	self:OnUpdate(parent, unit, self:GetCurrentStatus(unit))
+	if self.OnUpdate then
+		self:OnUpdate(parent, unit, self:GetCurrentStatus(unit))
+	end
 end
 
 indicator.Update = indicator.UpdateBlink
@@ -112,6 +125,7 @@ function Grid2:RegisterIndicator(indicator, types)
 		self.indicatorTypes[itype] = t
 		t[name] = indicator
 	end
+	if indicator.UpdateFilter then indicator:UpdateFilter() end -- GridIndicatorLoad.lua
 end
 
 function Grid2:UnregisterIndicator(indicator)

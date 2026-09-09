@@ -129,7 +129,8 @@ do
 		end
 		return count > 0 and "party" or "solo"
 	end
-	function Grid2:GroupChanged(event)
+	function Grid2:GroupChangedNow(event)
+		self.rosterTimer = nil
 		_, self.instType = IsInInstance()
 		if self.instType == "raid" and IsInRaid() then
 			self.instType = select(5, GetInstanceInfo()) > 10 and "raid25" or "raid10"
@@ -144,6 +145,23 @@ do
 			self:SendMessage("Grid_GroupTypeChanged", self.groupType)
 		end
 		self:UpdateRoster()
+	end
+	-- 3.3.5 backport: PARTY_MEMBERS_CHANGED/RAID_ROSTER_UPDATE fire in bursts
+	-- (BG fill, mass invites) and every threshold crossing rebuilds all secure
+	-- headers + all indicators — seconds-long freezes. Coalesce bursts: run the
+	-- real update 0.5s after the last roster event. Other events run immediately.
+	function Grid2:GroupChanged(event)
+		if event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" then
+			if not self.rosterTimer then
+				self.rosterTimer = self:ScheduleTimer("GroupChangedNow", 0.5)
+			end
+			return
+		end
+		if self.rosterTimer then
+			self:CancelTimer(self.rosterTimer)
+			self.rosterTimer = nil
+		end
+		self:GroupChangedNow(event)
 	end
 end
 

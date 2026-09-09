@@ -18,6 +18,7 @@ function status:new(name, embed)
 	end
 	e.name = name
 	e.indicators = {}
+	e.priorities = {}
 	return e
 end
 
@@ -65,6 +66,8 @@ status.OnDisable = Grid2.Dummy
 status.Refresh = Grid2.Dummy
 -- all indicators
 status.UpdateAllIndicators = Grid2.statusLibrary.UpdateAllUnits
+-- alias used by GridStatusLoad.lua load filters
+status.UpdateAllUnits = Grid2.statusLibrary.UpdateAllUnits
 -- all indicators
 status.Grid_Enabled = Grid2.statusLibrary.Grid_Enabled
 
@@ -89,19 +92,24 @@ function status:UpdateIndicators(unit)
 	end
 end
 
-function status:RegisterIndicator(indicator)
-	if self.indicators[indicator] then
-		return
-	end
-	local enabled = next(self.indicators)
-	self.indicators[indicator] = true
-	if not enabled then
-		self.enabled = true
-		self:OnEnable()
+function status:RegisterIndicator(indicator, priority, suspended)
+	if not self.indicators[indicator] then
+		self.priorities[indicator] = priority or (indicator.priorities and indicator.priorities[self])
+		if not suspended and not self.suspended then
+			self.indicators[indicator] = true
+			if not self.enabled then
+				self.enabled = true
+				self:OnEnable()
+				if self.EnableLoad then self:EnableLoad() end -- GridStatusLoad.lua
+			end
+		end
 	end
 end
 
-function status:UnregisterIndicator(indicator)
+function status:UnregisterIndicator(indicator, suspended)
+	if not suspended then
+		self.priorities[indicator] = nil
+	end
 	if not self.indicators[indicator] then
 		return
 	end
@@ -109,6 +117,7 @@ function status:UnregisterIndicator(indicator)
 	local enabled = next(self.indicators)
 	if not enabled then
 		self.enabled = nil
+		if self.DisableLoad then self:DisableLoad() end -- GridStatusLoad.lua
 		self:OnDisable()
 	end
 end
@@ -130,6 +139,7 @@ function Grid2:RegisterStatus(status, types, baseKey, dbx)
 		end
 	end
 	status.dbx = dbx
+	if status.RegisterLoad then status:RegisterLoad() end -- GridStatusLoad.lua
 end
 
 function Grid2:UnregisterStatus(status)
@@ -151,6 +161,7 @@ function Grid2:UnregisterStatus(status)
 			end
 		end
 	end
+	if status.UnregisterLoad then status:UnregisterLoad() end -- GridStatusLoad.lua
 end
 
 function Grid2:IterateStatuses(stype)

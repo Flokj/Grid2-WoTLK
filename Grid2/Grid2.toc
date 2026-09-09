@@ -7,7 +7,7 @@
 ## Notes-zhTW: 精簡的團隊框架功能
 
 ## Author: Kader (|cff808080bkader#5341|r)
-## Version: r736
+## Version: 2.9.31
 ## OptionalDeps: Ace3, Clique
 ## LoadOnDemand: 0
 ## DefaultState: enabled
@@ -25,7 +25,9 @@ templates.xml
 locales.xml
 
 GridCore.lua
+GridShims.lua
 GridUtils.lua
+GridUtilsCmd.lua
 GridRoster.lua
 GridLayout.lua
 GridLayoutLayouts.lua
@@ -33,8 +35,12 @@ GridFreeLayout.lua
 GridFrame.lua
 GridUnitPopup.lua
 GridIndicator.lua
+GridIndicatorLoad.lua
+GridIndicatorEffects.lua
 GridStatus.lua
+GridStatusLoad.lua
 GridSetup.lua
 GridDefaults.lua
+GridDefaultsClassic.lua
 
 modules.xml

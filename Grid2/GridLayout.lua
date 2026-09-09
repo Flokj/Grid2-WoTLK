@@ -66,13 +66,16 @@ local HeaderAttributes = {
 	"toggleForVehicle"
 }
 function GridLayoutHeaderClass.prototype:Reset()
+	-- bcc backport: hide the header BEFORE resetting attributes to avoid a lot
+	-- of unnecessary SecureGroupHeader_Update() calls (each SetAttribute on a
+	-- visible header triggers a full secure re-layout).
+	self:Hide()
 	if self.initialConfigFunction then
 		self:SetLayoutAttribute("sortMethod", "NAME")
 		for _, attr in ipairs(HeaderAttributes) do
 			self:SetLayoutAttribute(attr, nil)
 		end
 	end
-	self:Hide()
 end
 
 local anchorPoints = {
@@ -352,7 +355,10 @@ local function SetAllAttributes(header, p, list, fix)
 		end
 	end
 	if fix and petgroup then
-		-- force these so that the bug in SecureGroupPetHeader_Update doesn't trigger
+		-- workaround to blizzard pet bug (same as upstream bcc): without this,
+		-- pet buttons can map to wrong owner units in SecureGroupPetHeader_Update.
+		-- NOTE: temporarily NOT gated — re-measuring whether this forcing itself
+		-- costs seconds on 3.3.5 (headers are hidden here, so sets are cheap).
 		header:SetLayoutAttribute("useOwnerUnit", false)
 		header:SetLayoutAttribute("unitsuffix", nil)
 	end
@@ -360,24 +366,43 @@ end
 
 -- Precreate frames to avoid a blizzard bug that prevents initializing unit frames in combat
 -- http://forums.wowace.com/showpost.php?p=307503&postcount=3163
-local function ForceFramesCreation(header)
+-- 3.3.5 backport: pet buttons cost ~7x player buttons to create on this client
+-- (measured: 15 pet frames = 3.2s), so the pet header pre-spawns only live pets
+-- + slack instead of the full maxColumns*unitsPerColumn grid. Pets joining later
+-- are created on demand (out of combat); only a pet joining mid-combat waits.
+local function CountLivePets()
+	local n = 0
+	if UnitInRaid("player") then
+		for i = 1, 40 do if UnitExists("raidpet" .. i) then n = n + 1 end end
+	else
+		if UnitExists("pet") then n = n + 1 end
+		for i = 1, 4 do if UnitExists("partypet" .. i) then n = n + 1 end end
+	end
+	return n
+end
+local function ForceFramesCreation(header, headerType)
 	local startingIndex = header:GetAttribute("startingIndex")
 	local maxColumns = header:GetAttribute("maxColumns") or 1
 	local unitsPerColumn = header:GetAttribute("unitsPerColumn") or 5
 	local maxFrames = maxColumns * unitsPerColumn
+	if headerType == "raidpet" or headerType == "partypet" then
+		maxFrames = math.min(maxFrames, math.max(CountLivePets() + 4, 5))
+	end
 	local count = header.FrameCount
 	if not count or count < maxFrames then
 		header:Show()
 		header:SetAttribute("startingIndex", 1 - maxFrames)
 		header:SetAttribute("startingIndex", startingIndex)
 		header.FrameCount = maxFrames
+		-- bcc backport: hide again, the header is shown for real later by LoadLayout
+		header:Hide()
 	end
-end
+	end
 
 function Grid2Layout:LoadLayout(layoutName)
-	local layout = self.layoutSettings[layoutName]
-	if not layout then return end
-	self:Debug("LoadLayout", layoutName)
+local layout = self.layoutSettings[layoutName]
+if not layout then return end
+self:Debug("LoadLayout", layoutName)
 
 	self.layoutName = layoutName
 	self:Scale()
@@ -411,7 +436,7 @@ function Grid2Layout:LoadLayout(layoutName)
 				SetAllAttributes(layoutGroup, p, defaults)
 			end
 			SetAllAttributes(layoutGroup, p, l, true)
-			ForceFramesCreation(layoutGroup)
+			ForceFramesCreation(layoutGroup, type)
 			layoutGroup:SetOrientation(horizontal)
 		end
 		self:PlaceGroup(layoutGroup, i)

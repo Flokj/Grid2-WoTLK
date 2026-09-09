@@ -9,6 +9,26 @@ Grid2Options:RegisterIndicatorOptions("background", false, function(self, indica
 end)
 
 function Grid2Options:MakeIndicatorBackgroundOptions(indicator, options)
+	options.headerback = {
+		type = "header",
+		order = 21,
+		name = L["Main Background"],
+	}
+	options.backTexture = {
+		type = "select",
+		dialogControl = "LSM30_Statusbar",
+		order = 22,
+		name = L["Background Texture"],
+		desc = L["Select the frame background texture."],
+		get = function(info)
+			return Grid2Frame.db.profile.frameTexture or "Gradient"
+		end,
+		set = function(info, v)
+			Grid2Frame.db.profile.frameTexture = v
+			Grid2Frame:LayoutFrames()
+		end,
+		values = AceGUIWidgetLSMlists.statusbar,
+	}
 	options.colorBackground = {
 		type = "color",
 		hasAlpha = true,

@@ -124,11 +124,16 @@ end
 do
 	local function GetStatusColor(info)
 		local c = info.arg.status.dbx["color" .. (info.arg.colorIndex)]
+		-- 3.3.5 backport: colorless statuses (e.g. unit-index, text-only) have no
+		-- color entry in dbx — fall back to white instead of erroring.
+		if not c then return 1, 1, 1, 1 end
 		return c.r, c.g, c.b, c.a
 	end
 	local function SetStatusColor(info, r, g, b, a)
 		local status = info.arg.status
-		local c = status.dbx["color" .. (info.arg.colorIndex)]
+		local key = "color" .. (info.arg.colorIndex)
+		local c = status.dbx[key]
+		if not c then c = {}; status.dbx[key] = c end
 		c.r, c.g, c.b, c.a = r, g, b, a
 		status:UpdateDB()
 		status:UpdateAllIndicators()

@@ -21,7 +21,9 @@ embeds.xml
 locales.xml
 GridCore.lua
 GridUtils.lua
+GridWidgets.lua
 GridGeneral.lua
 GridIndicators.lua
 GridStatuses.lua
+GridThemes.lua
 modules.xml

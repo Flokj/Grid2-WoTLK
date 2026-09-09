@@ -16,7 +16,9 @@
 		curMask          Bitmask of the current unit, each roster[index] element has a bitmask of 2^(index-1)
 --]]
 local Grid2 = Grid2
-local AOEM = Grid2:NewModule("Grid2AoeHeals")
+-- 3.3.5 backport: core module StatusHealsAoe creates "Grid2AoeHeals" first;
+-- reuse it instead of throwing "Module already exists".
+local AOEM = Grid2:GetModule("Grid2AoeHeals", true) or Grid2:NewModule("Grid2AoeHeals")
 local _
 
 AOEM.defaultDB = {profile = {updateRate = 0.25, showInCombat = true, showInRaid = false}}

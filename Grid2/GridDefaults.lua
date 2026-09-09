@@ -273,8 +273,10 @@ function Grid2:UpdateDefaults()
 	end
 
 	if version == 0 then
-		MakeDefaultsCommon()
-		MakeDefaultsClass()
+		-- Classic defaults live in GridDefaultsClassic.lua when present (BCC structure),
+		-- otherwise fall back to the built-in local defaults below.
+		if Grid2.MakeDefaultsCommon then Grid2:MakeDefaultsCommon() else MakeDefaultsCommon() end
+		if Grid2.MakeDefaultsClass then Grid2:MakeDefaultsClass() else MakeDefaultsClass() end
 	else
 		-- Upgrade health&heals indicator
 		local health = Grid2:DbGetValue("indicators", "health")

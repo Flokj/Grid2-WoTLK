@@ -18,7 +18,7 @@ Grid2Options:RegisterIndicatorOptions("shape", true, function(self, indicator)
 	local statuses, options = {}, {}
 	self:MakeIndicatorTypeLevelOptions(indicator, options)
 	self:MakeIndicatorLocationOptions(indicator, options)
-	self:MakeIndicatorAnimationOptions(indicator, options)
+	self:MakeIndicatorHighlightEffectOptions(indicator, options)
 	self:MakeIndicatorShapeCustomOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
 	self:AddIndicatorOptions(indicator, statuses, options)

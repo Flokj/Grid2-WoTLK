@@ -86,6 +86,32 @@ function Grid2Options:GetStatusOptions(status, reset)
 	return options
 end
 
+-- Register a special derived label widget with a delete icon to the right, used in MakeStatusTitleOptions()
+Grid2Options.statusTitleIconsOptions = {
+	size = 24, offsetx = -4, offsety = -2, anchor = 'TOPRIGHT',
+	{ image = "Interface\\AddOns\\Grid2Options\\media\\delete", tooltip = L["Delete this status"], func = function(info) Grid2Options:DeleteStatusConfirm(info.option.arg.status) end },
+}
+
+-- Delete a status after confirmation
+function Grid2Options:DeleteStatusConfirm(status)
+	if status then
+		if next(status.indicators) == nil and not status:IsSuspended() then
+			self:ConfirmDialog( L["Are you sure you want to delete this status?"], function() Grid2Options:DeleteStatus(status) end )
+		else
+			self:MessageDialog( L["This status cannot be deleted because is attached to some indicators or the status is not enabled for this character."] )
+		end
+	end
+end
+
+function Grid2Options:DeleteStatus(status)
+	local category = self:GetStatusCategory(status)
+	Grid2.db.profile.statuses[status.name] = nil
+	Grid2:UnregisterStatus(status)
+	Grid2Frame:UpdateIndicators()
+	self:DeleteStatusOptions(category, status)
+	self:SelectGroup('statuses', category)
+end
+
 -- Calculate status information necessary to create the status and group options
 do
 	local iconCoords = {0.05, 0.95, 0.05, 0.95}
@@ -95,7 +121,7 @@ do
 			local catKey = self:GetStatusCategory(status)
 			local catGroup = self.statusOptions[catKey]
 			if catGroup then
-				local name, desc, icon, coords
+				local name, desc, icon, coords, deletable
 				local category = self.categories[catKey]
 				local dbx = status.dbx
 				local spell = dbx.spellName
@@ -115,7 +141,8 @@ do
 				desc = desc or (params and params.title) or L["Options for %s."]:format(name)
 				icon = icon or (params and params.titleIcon) or category.icon
 				coords = params and params.titleIconCoords or iconCoords
-				return catGroup, name, desc, icon, coords, params
+				deletable = params and (type(params.isDeletable) == 'function' and params.isDeletable(status) or params.isDeletable)
+				return catGroup, name, desc, icon, coords, params, deletable
 			end
 		end
 	end
@@ -143,7 +170,9 @@ function Grid2Options:MakeStatusTitleOptions(status, options, optionParams)
 	if not (options.title or (optionParams and optionParams.hideTitle)) then
 		local group = self:GetStatusGroup(status)
 		local name = fmt("%s  |cFF8681d1[%s]|r", group.name, self:GetStatusCompIndicatorsText(status))
-		self:MakeTitleOptions(options, name, group.desc, optionParams and optionParams.titleDesc, group.icon, group.iconCoords)
+		local deletable = optionParams and (type(optionParams.isDeletable) == 'function' and optionParams.isDeletable(status) or optionParams.isDeletable)
+		self:MakeTitleOptions(options, name, group.desc, optionParams and optionParams.titleDesc, group.icon, group.iconCoords,
+			deletable and { status = status, icons = Grid2Options.statusTitleIconsOptions })
 	end
 end
 

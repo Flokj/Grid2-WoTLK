@@ -33,10 +33,17 @@ local UPC_VALUES = {
 	["03"] = "03",
 	["04"] = "04",
 	["05"] = "05",
+	["06"] = "06",
+	["07"] = "07",
+	["08"] = "08",
+	["09"] = "09",
 	["10"] = "10",
 	["15"] = "15",
 	["20"] = "20",
-	["25"] = "25"
+	["25"] = "25",
+	["30"] = "30",
+	["35"] = "35",
+	["40"] = "40"
 }
 local GROUP_VALUES = {
 	["1"] = "1",
@@ -57,7 +64,8 @@ local GROUPBY_VALUES = {
 }
 local SORTBY_VALUES = {
 	["NAME"] = L["Name"],
-	["INDEX"] = L["Index"]
+	["INDEX"] = L["Index"],
+	["NAMELIST"] = L["List"]
 }
 
 local ACTION1_VALUES = {
@@ -253,6 +261,83 @@ local function LoadLayoutHeader(layoutName, layout, index, header)
 		values = SORTBY_VALUES,
 		disabled = disabled
 	}
+	args["namelist" .. index] = {
+		type = "toggle",
+		order = order + 11,
+		width = "half",
+		name = L["Name List"],
+		desc = L["Check this option to specify a list of players names to display."],
+		get = function()
+			return header.nameList ~= nil
+		end,
+		set = function(_, v)
+			header.nameList = v and "" or nil
+			if not v and header.sortMethod == "NAMELIST" then header.sortMethod = nil end
+		end,
+		disabled = disabled
+	}
+	args["namelistedit" .. index] = {
+		type = "input",
+		order = order + 12,
+		width = "full",
+		name = "",
+		desc = "",
+		multiline = 6,
+		get = function()
+			return header.nameList and table.concat({ strsplit(",", header.nameList) }, ", ") or ""
+		end,
+		set = function(_, v)
+			local t = { strsplit("\n,;:|", v) }
+			for i = #t, 1, -1 do
+				t[i] = strtrim(t[i])
+				if t[i] == "" then table.remove(t, i) end
+			end
+			local nameList = table.concat(t, ",")
+			if nameList ~= "" then
+				header.nameList = nameList
+				header.groupBy = nil
+				header.groupingOrder = nil
+			else
+				header.nameList = nil
+				if header.sortMethod == "NAMELIST" then header.sortMethod = nil end
+			end
+		end,
+		hidden = function() return header.nameList == nil end,
+		disabled = disabled
+	}
+	args["hideplayer" .. index] = {
+		type = "toggle",
+		order = order + 13,
+		width = "half",
+		name = L["Hide Player"],
+		desc = L["Do not display the player frame (only applied when in party)."],
+		get = function()
+			return header.showPlayer == false
+		end,
+		set = function(_, v)
+			if v then
+				header.showPlayer = false
+			else
+				header.showPlayer = nil
+			end
+		end,
+		disabled = disabled
+	}
+	args["vehicle" .. index] = {
+		type = "toggle",
+		order = order + 14,
+		width = "half",
+		name = L["Toggle for vehicle"],
+		desc = L["When the player is in a vehicle replace the player frame with the vehicle frame."],
+		tristate = true,
+		get = function()
+			return header.toggleForVehicle
+		end,
+		set = function(_, v)
+			header.toggleForVehicle = v
+		end,
+		disabled = disabled
+	}
 	if not disabled then
 		args["action" .. index] = {
 			type = "select",
@@ -272,7 +357,16 @@ local function LoadLayoutHeader(layoutName, layout, index, header)
 					LoadLayout(layoutName)
 				end
 			end,
-			values = #layout > 1 and ACTION1_VALUES or ACTION2_VALUES
+			values = #layout > 1 and ACTION1_VALUES or ACTION2_VALUES,
+			confirm = function(_, v)
+				if v == "del" then
+					if #layout > 1 then
+						return L["Are you sure you want to remove this header?"]
+					else
+						return L["Are you sure you want to delete the selected layout?"]
+					end
+				end
+			end
 		}
 	end
 end
@@ -381,6 +475,39 @@ function Grid2Options:MakeLayoutsEditorOptions()
 			end,
 			set = function(_, v)
 				layoutName = CreateLayout(v)
+			end
+		},
+		copy = {
+			type = "select",
+			order = 2.5,
+			name = L["Copy Layout"],
+			desc = L["Copy the selected layout into a new layout."],
+			get = function()
+			end,
+			set = function(_, value)
+				local layouts = Grid2Layout.db.global.customLayouts
+				if layouts and layouts[value] then
+					Grid2Options:ShowEditDialog(L["Type the name of the new Layout:"], "", function(name)
+						layouts = Grid2Layout.db.global.customLayouts
+						if strlen(name) >= 3 and layouts and not Grid2Layout.layoutSettings[name] then
+							layouts[name] = Grid2.CopyTable(layouts[value])
+							Grid2Layout:AddLayout(name, layouts[name])
+							options.selectLayout.values = GetAvailableLayouts()
+							layoutName = LoadLayout(name)
+						end
+					end)
+				end
+			end,
+			values = function()
+				local result = {}
+				local custom = Grid2Layout.db.global.customLayouts or {}
+				for name in pairs(custom) do
+					result[name] = name
+				end
+				return result
+			end,
+			disabled = function()
+				return not next(Grid2Layout.db.global.customLayouts or {})
 			end
 		},
 		delete = {

@@ -475,7 +475,7 @@ do
 		local i = 1
 		local name, _, iconTexture, count, debuffType, duration, expirationTime, caster, _, _, spellId = UnitDebuff(unit, i)
 		while name do
-			local status = DebuffHandlers[name] or DebuffHandlers[spellId]
+			local status = DebuffHandlers[name] or (spellId and DebuffHandlers[spellId]) -- 3.3.5: UnitDebuff() returns no spellId
 			if status then
 				status:UpdateState(unit, iconTexture, count, duration, expirationTime, myUnits[caster])
 			end
@@ -493,7 +493,7 @@ do
 		i = 1
 		name, _, iconTexture, count, _, duration, expirationTime, caster, _, _, spellId = UnitBuff(unit, i)
 		while name do
-			local statuses = BuffHandlers[name] or BuffHandlers[spellId]
+			local statuses = BuffHandlers[name] or (spellId and BuffHandlers[spellId]) -- 3.3.5: UnitBuff() returns no spellId
 			if statuses then
 				local isMine = myUnits[caster]
 				for status in next, statuses do
@@ -537,4 +537,567 @@ Grid2:DbSetStatusDefaultValue("debuff-Magic", {type = "debuffType", subType = "M
 Grid2:DbSetStatusDefaultValue("debuff-Poison", {type = "debuffType", subType = "Poison", color1 = {r = 0, g = 0.6, b = 0, a = 1}})
 Grid2:DbSetStatusDefaultValue("debuff-Curse", {type = "debuffType", subType = "Curse", color1 = {r = 0.6, g = 0, b = 1, a = 1}})
 Grid2:DbSetStatusDefaultValue("debuff-Disease", {type = "debuffType", subType = "Disease", color1 = {r = 0.6, g = 0.4, b = 0, a = 1}})
+--}}
+
+--{{ New aura engine: Grid2.CreateStatusAura (ported from Grid2-bcc, adapted for 3.3.5)
+-- Used by buffs/debuffs group statuses (StatusAurasBuffs.lua, StatusAurasDebuffs.lua).
+-- The old engine above (CreateBuff/CreateDebuff + setupFunc buff/debuff/debuffType) is untouched.
+-- 3.3.5 adaptations vs bcc:
+-- * no UnitAura()/C_UnitAuras/spellId: UnitBuff()/UnitDebuff() are scanned, auras matched by name only.
+--   Numeric spells registered by id are resolved to names with GetSpellInfo() at registration time.
+-- * native GetSpellInfo() returns nil for spells not seen yet: every resolution falls back to a safe
+--   default, a nil key is never used as a table index.
+-- * no Grid2.owner_of_unit table: pets are detected with Grid2:UnitIsPet(unit).
+-- * no Grid2.roster_my_units table: a local {player,pet,vehicle} set is used instead.
+-- * no Grid2:CreateTimer() object API: time tracking uses an animation-frame timer like AddTimeTracker above.
+-- * target Grid2:RegisterStatus() does not call status:UpdateDB() (bcc does), CreateStatusAura calls it explicitly.
+local GetSpellInfo = GetSpellInfo -- 3.3.5: native, nil for spells not cached yet (guarded everywhere below)
+local myUnits = { player = true, pet = true, vehicle = true } -- 3.3.5: no Grid2.roster_my_units
+
+local Statuses = {}
+local Buffs = {}
+local Debuffs = {}
+local DebuffTypes = {}
+local DebuffGroups = {}
+
+local debuffTypeSpells = {}
+local debuffTypeColors = {}
+Grid2.debuffTypeSpells = Grid2.debuffTypeSpells or debuffTypeSpells -- 3.3.5: table does not exist
+Grid2.debuffTypeColors = Grid2.debuffTypeColors or debuffTypeColors -- 3.3.5: table does not exist
+
+local AuraFrame_OnEventNew -- forward declaration (defined below, used by the event frame)
+local UpdateAllAuras -- forward declaration (defined below, used by status OnEnable)
+
+--{{ New engine UNIT_AURA scan (3.3.5: UnitBuff/UnitDebuff, match by aura name, no spellId/values/boss flag)
+do
+local next = next
+local indicators = {}
+function AuraFrame_OnEventNew(_, _, u)
+	local frames = Grid2:GetUnitFrames(u)
+	if not next(frames) then return end
+	-- Scan Debuffs, Debuff Types, Debuff Groups
+	local i = 1
+	local nam, _, tex, cnt, typ, dur, exp, cas = UnitDebuff(u, i)
+	while nam do
+		if cnt==0 then cnt=1 end
+		local statuses = Debuffs[nam]
+		if statuses then
+			for s in next, statuses do
+				local mine = s.isMine
+				if mine==false or mine==myUnits[cas] then
+					if s.UpdateState then
+						s:UpdateState(u, i, nil, nam, tex, cnt, dur, exp, typ)
+					elseif exp~=s.exp[u] or cnt~=s.cnt[u] then
+						s.seen, s.idx[u], s.tex[u], s.cnt[u], s.dur[u], s.exp[u], s.typ[u], s.tkr[u] = 1, i, tex, cnt, dur, exp, typ, 1
+					else
+						s.seen, s.idx[u] = -1, i
+					end
+				end
+			end
+		end
+		local s = DebuffTypes[typ or 'Typeless']
+		if s and not s.seen and not (s.debuffFilter and s.debuffFilter[nam]) then
+			if exp~=s.exp[u] or cnt~=s.cnt[u] then
+				s.seen, s.idx[u], s.tex[u], s.cnt[u], s.dur[u], s.exp[u] = 1, i, tex, cnt, dur, exp
+			else
+				s.seen, s.idx[u] = -1, i
+			end
+		end
+		for s, update in next, DebuffGroups do
+			if (update or not s.seen) and s:UpdateState(u, nil, nam, cnt, dur, cas, nil, typ) then
+				s.seen, s.idx[u], s.tex[u], s.cnt[u], s.dur[u], s.exp[u], s.typ[u], s.tkr[u] = 1, i, tex, cnt, dur, exp, typ, 1
+			end
+		end
+		i = i + 1
+		nam, _, tex, cnt, typ, dur, exp, cas = UnitDebuff(u, i)
+	end
+	-- Scan Buffs
+	i = 1
+	nam, _, tex, cnt, _, dur, exp, cas = UnitBuff(u, i)
+	while nam do
+		if cnt==0 then cnt=1 end
+		local statuses = Buffs[nam]
+		if statuses then
+			for s in next, statuses do
+				local mine = s.isMine
+				if (mine==false or mine==myUnits[cas]) and s.seen~=1 then
+					if s.UpdateState then
+						s:UpdateState(u, i, nil, nam, tex, cnt, dur, exp)
+					elseif exp~=s.exp[u] or s.cnt[u]~=cnt or s.spells then
+						s.seen, s.idx[u], s.tex[u], s.cnt[u], s.dur[u], s.exp[u], s.tkr[u] = 1, i, tex, cnt, dur, exp, 1
+					else
+						s.seen, s.idx[u] = -1, i
+					end
+				end
+			end
+		end
+		i = i + 1
+		nam, _, tex, cnt, _, dur, exp, cas = UnitBuff(u, i)
+	end
+	-- Mark indicators that need updating
+	for s in next, Statuses do
+		local seen = s.seen
+		if (seen==1) or ((not seen) and s.idx[u] and s:Reset(u)) then
+			for indicator in next, s.indicators do
+				indicators[indicator] = true
+			end
+		end
+		if s.ResetState then s:ResetState(u) end
+		s.seen = false
+	end
+	-- Update indicators that needs updating only once.
+	for indicator in next, indicators do
+		for frame in next, frames do
+			indicator:Update(frame, u)
+		end
+	end
+	wipe(indicators)
+end
+end
+--}}
+
+--{{ Clear/update new engine auras when units change or leave the roster
+do
+local function UpdateFakedUnitsAuras(_,units)
+	for unit in next, units do
+		AuraFrame_OnEventNew(nil, true, unit)
+	end
+end
+local function ClearAurasOfUnit(_, unit)
+	for status in next, Statuses do
+		status.idx[unit], status.exp[unit], status.val[unit] = nil, nil, nil
+	end
+end
+local function UpdateAurasOfUnit(_, unit)
+	AuraFrame_OnEventNew(nil, nil, unit)
+end
+function UpdateAllAuras()
+	for unit in Grid2:IterateRosterUnits() do
+		AuraFrame_OnEventNew(nil,nil,unit)
+	end
+end
+Grid2.RegisterMessage( Statuses, "Grid_UnitLeft", ClearAurasOfUnit )
+Grid2.RegisterMessage( Statuses, "Grid_UnitUpdated", UpdateAurasOfUnit )
+Grid2.RegisterMessage( Statuses, "Grid_FakedUnitsUpdate", UpdateFakedUnitsAuras)
+end
+--}}
+
+--{{ EnableAuraEvents() DisableAuraEvents(): own UNIT_AURA frame for the new engine (old engine frame untouched)
+local EnableAuraEvents, DisableAuraEvents
+do
+local frame
+EnableAuraEvents = function()
+	if not next(Statuses) then
+		if not frame then frame = CreateFrame("Frame", nil, Grid2LayoutFrame) end
+		frame:SetScript("OnEvent", AuraFrame_OnEventNew)
+		frame:RegisterEvent("UNIT_AURA")
+	end
+end
+DisableAuraEvents = function()
+	if not next(Statuses) then
+		frame:SetScript("OnEvent", nil)
+		frame:UnregisterEvent("UNIT_AURA")
+	end
+end
+end
+--}}
+
+--{{ RegisterTimeTrackerStatus() UnregisterTimeTrackerStatus() (3.3.5: animation-frame timer, new engine tkr/exp/dur fields)
+local RegisterTimeTrackerStatus, UnregisterTimeTrackerStatus
+do
+local tracked = {}
+local timetracker
+local function Tracker_OnFinished(self)
+	local time = GetTime()
+	for status,elapsed in next, tracked do
+		local tracker    = status.tkr
+		local thresholds = status.thresholds
+		for unit, expiration in next, status.exp do
+			local threshold = thresholds[tracker[unit]]
+			if threshold and time >= expiration - (elapsed and status.dur[unit]-threshold or threshold) then
+				tracker[unit] = tracker[unit] + 1
+				status:UpdateIndicators(unit)
+			end
+		end
+	end
+	self:Play()
+end
+RegisterTimeTrackerStatus = function(status, elapsed)
+	if not timetracker then
+		timetracker = CreateFrame("Frame", nil, Grid2LayoutFrame):CreateAnimationGroup()
+		timetracker:SetScript("OnFinished", Tracker_OnFinished)
+		local timer = timetracker:CreateAnimation()
+		timer:SetOrder(1)
+		timer:SetDuration(0.1)
+	end
+	if not next(tracked) then timetracker:Play() end
+	tracked[status] = elapsed or false
+end
+UnregisterTimeTrackerStatus = function(status)
+	tracked[status] = nil
+	if (not next(tracked)) and timetracker then timetracker:Stop() end
+end
+end
+--}}
+
+--{{ RegisterStatusAura() UnregisterStatusAura()
+local function RegisterStatusAura(status, auraType, spell, update)
+	EnableAuraEvents(status)
+	if auraType=="debuffType" then
+		DebuffTypes[spell] = status
+	elseif not spell then
+		DebuffGroups[status] = not not update
+	else
+		if type(spell)=="number" then spell = GetSpellInfo(spell) or spell end -- 3.3.5: scan matches by name, UnitBuff/UnitDebuff return no spellId
+		local handler = auraType=="buff" and Buffs or Debuffs
+		local statuses = handler[spell]
+		if not statuses then
+			statuses = {}
+			handler[spell] = statuses
+		end
+		statuses[status] = true
+	end
+	Statuses[status] = true
+end
+local function UnregisterStatusAura(status, auraType, subType)
+	local handler = (auraType=="buff" and Buffs) or (auraType=="debuff" and Debuffs)
+	if handler then
+		for key,statuses in pairs(handler) do
+			if statuses[status] then
+				statuses[status] = nil
+				if not next(statuses) then handler[key] = nil end
+			end
+		end
+		DebuffGroups[status] = nil
+	else
+		DebuffTypes[subType] = nil
+	end
+	Statuses[status] = nil
+	DisableAuraEvents(status)
+end
+--}}
+
+--{{ Grid2.CreateStatusAura()
+local CreateStatusAura
+do
+	local fmt = string.format
+	local UnitHealthMax = UnitHealthMax
+	local function unit_is_pet(unit) return Grid2:UnitIsPet(unit) end -- 3.3.5: no Grid2.owner_of_unit table
+	local function Reset(self, unit) -- multibar indicator needs val[unit]=nil because due to a speed optimization it does not check if status is active before calling GetPercent()
+		self.idx[unit], self.exp[unit], self.val[unit] = nil, nil, nil
+		return true
+	end
+	-- with unit class/reaction/role filters
+	local function IsActiveFilter(self, unit)
+		return not self.filtered[unit] and self.idx[unit]~=nil
+	end
+	local function IsActiveStacksFilter(self, unit)
+		return not self.filtered[unit] and self.idx[unit] and self.cnt[unit]>=self.stacks
+	end
+	local function IsActiveBlinkFilter(self, unit)
+		if self.filtered[unit] or not self.idx[unit] then return end
+		return self.tkr[unit]==1 or "blink"
+	end
+	local function IsActiveStacksBlinkFilter(self, unit)
+		if self.filtered[unit] or not (self.idx[unit] and self.cnt[unit]>=self.stacks) then return end
+		return self.tkr[unit]==1 or "blink"
+	end
+	local function IsActiveBlinkAFilter(self, unit)
+		if self.filtered[unit] or not self.idx[unit] then return end
+		return "blink"
+	end
+	local function IsActiveStacksBlinkAFilter(self, unit)
+		if self.filtered[unit] or not (self.idx[unit] and self.cnt[unit]>=self.stacks) then return end
+		return "blink"
+	end
+	local function IsInactiveFilter(self, unit)
+		return not self.filtered[unit] and not (self.idx[unit] or unit_is_pet(unit))
+	end
+	local function IsInactiveBlinkFilter(self, unit)
+		return not self.filtered[unit] and not (self.idx[unit] or unit_is_pet(unit)) and "blink"
+	end
+	local function IsInactiveFilterPets(self, unit)
+		return not self.filtered[unit] and not self.idx[unit]
+	end
+	local function IsInactiveBlinkFilterPets(self, unit)
+		return not self.filtered[unit] and not self.idx[unit] and "blink"
+	end
+	-- no unit class/reaction/role filters
+	local function IsActive(self, unit)
+		if self.idx[unit] then return true end
+	end
+	local function IsActiveStacks(self, unit)
+		if self.idx[unit] and self.cnt[unit]>=self.stacks then return true end
+	end
+	local function IsActiveBlink(self, unit)
+		if not self.idx[unit] then return end
+		return self.tkr[unit]==1 or "blink"
+	end
+	local function IsActiveStacksBlink(self, unit)
+		if not (self.idx[unit] and self.cnt[unit]>=self.stacks) then return end
+		return self.tkr[unit]==1 or "blink"
+	end
+	local function IsActiveBlinkA(self, unit)
+		if not self.idx[unit] then return end
+		return "blink"
+	end
+	local function IsActiveStacksBlinkA(self, unit)
+		if not (self.idx[unit] and self.cnt[unit]>=self.stacks) then return end
+		return "blink"
+	end
+	local function IsInactive(self, unit)
+		return not (self.idx[unit] or unit_is_pet(unit))
+	end
+	local function IsInactiveBlink(self, unit)
+		return not (self.idx[unit] or unit_is_pet(unit)) and "blink"
+	end
+	local function IsInactivePets(self, unit)
+		return not self.idx[unit]
+	end
+	local function IsInactiveBlinkPets(self, unit)
+		return not self.idx[unit] and "blink"
+	end
+	--
+	local function GetIcon(self, unit)
+		return self.tex[unit]
+	end
+	local function GetIconMissing(self)
+		return self.missingTexture
+	end
+	local function GetCount(self, unit)
+		return self.cnt[unit]
+	end
+	local function GetCountMissing()
+		return 1
+	end
+	local function GetExpirationTime(self, unit)
+		return self.exp[unit]
+	end
+	local function GetExpirationTimeMissing()
+		return GetTime() + 9999
+	end
+	local function GetCountMax(self)
+		return self.dbx.colorCount or 1
+	end
+	local function GetDuration(self, unit)
+		return self.dur[unit]
+	end
+	local function GetDurationFixed(self)
+		return self.dbx.maxDuration
+	end
+	local function GetDurationMissing()
+		return
+	end
+	local function GetPercentHealth(self, unit)
+		local m = UnitHealthMax(unit)
+		return m>0 and (self.val[unit] or 0) / m or 0
+	end
+	local function GetPercentMax(self, unit)
+		return (self.val[unit] or 0) / self.valMax
+	end
+	local function GetTextValue(self, unit)
+		return fmt( "%.1fk", (self.val[unit] or 0) / 1000 )
+	end
+	local function GetTextSpell(self, unit)
+		return self.spellText
+	end
+	local function GetTextCustom(self, unit)
+		return self.customText
+	end
+	local function GetTimeColor(self, unit) -- Color by time remaining or time elapsed
+		local colors = self.colors
+		local i = self.tkr[unit]
+		local c = colors[i] or colors[1]
+		return c.r, c.g, c.b, c.a
+	end
+	local function GetValueColor(self, unit) -- Color by value
+		local i = 1
+		local value = self.val[unit] or 0
+		local thresholds = self.thresholds
+		while i<=#thresholds and value<thresholds[i] do
+			i = i + 1
+		end
+		local c = self.colors[i]
+		return c.r, c.g, c.b, c.a
+	end
+	local function GetBorderMandatory()
+		return 1
+	end
+	local function GetBorderOptional()
+		return 0
+	end
+	local function GetDebuffTooltip(self, unit, tip, slotID)
+		local index = slotID or self.idx[unit]
+		if index then
+			tip:SetUnitDebuff(unit, index)
+		end
+	end
+	local function GetBuffTooltip(self, unit, tip, slotID)
+		local index = slotID or self.idx[unit]
+		if index then
+			tip:SetUnitBuff(unit, index)
+		end
+	end
+	local function OnEnable(self)
+		if self.spell then -- standalone buff or debuff
+			RegisterStatusAura(self, self.handlerType, self.spell)
+		elseif self.handlerType=='buff' then
+			for spell in pairs(self.spells) do
+				RegisterStatusAura( self, 'buff', spell )
+			end
+		else -- debuffType or group of filtered debuffs
+			RegisterStatusAura(self, self.handlerType, self.dbx.subType, self.fullUpdate)
+		end
+		if self.thresholds and (not self.dbx.colorThresholdValue) then
+			RegisterTimeTrackerStatus(self, self.dbx.colorThresholdElapsed)
+		end
+		UpdateAllAuras()
+		if self.OnEnableAura then self:OnEnableAura() end
+	end
+	local function OnDisable(self)
+		UnregisterStatusAura(self, self.handlerType, self.dbx.subType)
+		UnregisterTimeTrackerStatus(self)
+		wipe(self.idx); wipe(self.exp); wipe(self.val)
+		if self.OnDisableAura then self:OnDisableAura() end
+	end
+	local function UpdateStateCombineStacks(s, u, i, sid, nam, tex, cnt, dur, exp, typ)
+		if s.seen then -- adding extra debuffs stacks
+			s.cnt[u] = s.cnt[u] + cnt
+		else -- debuff must be always marked to be updated (seen=1) and cnt must be initialized even if first debuff is not new and didn't change
+			s.seen, s.idx[u], s.tex[u], s.cnt[u], s.dur[u], s.exp[u], s.typ[u], s.tkr[u], s.val[u]  = 1, i, tex, cnt, dur, exp, typ, 1, nil
+		end
+	end
+	local function UpdateDB(self,dbx)
+		if self.enabled then self:OnDisable() end
+		local dbx = dbx or self.dbx
+		local blinkThreshold = dbx.blinkThreshold or nil
+		self.vId = dbx.valueIndex or 0
+		self.valMax = dbx.valueMax
+		self.GetPercent = dbx.valueIndex and (dbx.valueMax and GetPercentMax or GetPercentHealth) or Grid2.statusLibrary.GetPercent
+		if self.spells then wipe(self.spells) end
+		if dbx.auras then -- multiple spells
+			local useSpellId = dbx.useSpellId
+			self.spells = self.spells or {}
+			if dbx.useSpellId then
+				for _,spell in ipairs(dbx.auras) do
+					self.spells[spell] = true
+				end
+			else
+				for _,spell in ipairs(dbx.auras) do
+					local name = type(spell)=='number' and GetSpellInfo(spell) or spell -- 3.3.5: nil while spell not cached
+					self.spells[ name or spell ] = true -- never a nil key: falls back to the spellId itself
+				end
+			end
+		elseif dbx.spellName then -- single spell
+			local spell = dbx.spellName
+			self.spellText = type(spell)=='number' and GetSpellInfo(spell) or tostring(spell)
+			if not self.spellText then self.spellText = tostring(spell) end -- 3.3.5: spellId not cached yet
+			self.spell = dbx.useSpellId and spell or self.spellText
+		end
+		if dbx.mine==2 then  -- 2>nil = not mine;  1|true>true = mine;  false|nil>false = mine&not-mine
+			self.isMine = nil
+		else
+			self.isMine = not not dbx.mine
+		end
+		if dbx.missing then
+			local spell = dbx.auras and dbx.auras[1] or dbx.spellName
+			self.missingTexture = (spell and select(3,GetSpellInfo(spell))) or "Interface\\ICONS\\Achievement_General"
+			self.GetIcon  = GetIconMissing
+			self.GetCount = GetCountMissing
+			self.GetDuration = GetDurationMissing
+			self.GetExpirationTime = GetExpirationTimeMissing
+			if dbx.missingPets then
+				if self.filtered then
+					self.IsActive = blinkThreshold and IsInactiveBlinkFilterPets or IsInactiveFilterPets
+				else
+					self.IsActive = blinkThreshold and IsInactiveBlinkPets or IsInactivePets
+				end
+			else
+				if self.filtered then
+					self.IsActive = blinkThreshold and IsInactiveBlinkFilter or IsInactiveFilter
+				else
+					self.IsActive = blinkThreshold and IsInactiveBlink or IsInactive
+				end
+			end
+			self.thresholds = nil
+			self.UpdateState = nil
+		else
+			self.stacks = dbx.enableStacks
+			self.GetIcon = GetIcon
+			self.GetCount = GetCount
+			self.GetExpirationTime = GetExpirationTime
+			self.GetDuration = dbx.maxDuration and GetDurationFixed or GetDuration
+			self.UpdateState = dbx.combineStacks and UpdateStateCombineStacks or nil
+			if blinkThreshold then
+				if blinkThreshold>0 then -- blink/glow active after some time threshold
+					self.thresholds = { blinkThreshold }
+					if self.filtered then
+						self.IsActive = self.stacks and IsActiveStacksBlinkFilter or IsActiveBlinkFilter
+					else
+						self.IsActive = self.stacks and IsActiveStacksBlink or IsActiveBlink
+					end
+				else -- blink/glow always active, no timetracker is needed
+					self.thresholds = nil
+					if self.filtered then
+						self.IsActive = self.stacks and IsActiveStacksBlinkAFilter or IsActiveBlinkAFilter
+					else
+						self.IsActive = self.stacks and IsActiveStacksBlinkA or IsActiveBlinkA
+					end
+				end
+			else -- blinkThreshold==0 => always active
+				self.thresholds = dbx.colorThreshold
+				if self.filtered then
+					self.IsActive = self.stacks and IsActiveStacksFilter or IsActiveFilter
+				else
+					self.IsActive = self.stacks and IsActiveStacks or IsActive
+				end
+			end
+		end
+		local colorCount = dbx.colorCount or 1
+		if dbx.colorThreshold and colorCount>1 then -- color by time or value
+			self.colors = self.colors or {}
+			for i=1,colorCount do self.colors[i] = dbx["color"..i] end
+			self.GetColor = dbx.colorThresholdValue and GetValueColor or GetTimeColor
+		else -- single color or color by number of stacks
+			MakeStatusColorHandler(self)
+		end
+		if dbx.type == "debuffType" then
+			self.debuffFilter = dbx.debuffFilter
+			self.GetBorder = GetBorderMandatory
+		else
+			self.GetBorder = GetBorderOptional
+		end
+		self.GetTooltip = (self.handlerType~="buff") and GetDebuffTooltip or GetBuffTooltip
+		self.customText = dbx.text
+		if dbx.text==1 then -- tracked value
+			self.GetText = GetTextValue
+		elseif dbx.text then -- custom text
+			self.GetText = GetTextCustom
+		else -- aura name
+			self.GetText = GetTextSpell
+		end
+		if self.OnUpdate then self:OnUpdate(dbx) end
+		if self.enabled then self:OnEnable() end
+	end
+	CreateStatusAura = function(status, baseKey, dbx, handlerType, statusTypes)
+		status.handlerType = handlerType
+		status.idx = {}
+		status.tex = {}
+		status.cnt = {}
+		status.exp = {}
+		status.dur = {}
+		status.typ = {}
+		status.val = {}
+		status.tkr = {}
+		status.Reset       = Reset
+		status.GetCountMax = GetCountMax
+		status.UpdateDB    = UpdateDB
+		status.OnEnable    = OnEnable
+		status.OnDisable   = OnDisable
+		Grid2:RegisterStatus(status, statusTypes, baseKey, dbx)
+		status:UpdateDB() -- 3.3.5: target RegisterStatus() does not call UpdateDB() (bcc does)
+		return status
+	end
+end
+Grid2.CreateStatusAura = CreateStatusAura
 --}}

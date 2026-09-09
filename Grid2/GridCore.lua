@@ -174,6 +174,9 @@ function Grid2:InitializeOptions()
 end
 
 function Grid2:OnChatCommand(input)
+	if input and input ~= "" and self.ProcessCommandLine and self:ProcessCommandLine(input) then
+		return -- handled by GridUtilsCmd.lua (lock/unlock/show/theme/profile/namelist/...)
+	end
 	if not Grid2Options then
 		Grid2:LoadGrid2Options()
 	end
@@ -277,8 +280,10 @@ do
 						index = index + 1
 					end
 				end
-				while index <= #menuTable do
-					wipe(menuTable[index])
+				-- truncate stale entries from the end (never wipe in place: it leaves
+				-- holes and # becomes undefined, which hung the client forever)
+				for i = #menuTable, index, -1 do
+					menuTable[i] = nil
 				end
 				sort(menuTable, function(a, b)
 					if a.isTitle then

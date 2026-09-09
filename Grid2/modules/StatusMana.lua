@@ -125,10 +125,13 @@ local replaceEventWithPowerType = {
 local power_OnEnable, power_OnDisable
 do
 	local frame
+	-- 3.3.5: UnitPowerType() returns only the power index, map it to the power token
+	local powerTokens = { [0] = "MANA", [1] = "RAGE", [2] = "FOCUS", [3] = "ENERGY", [6] = "RUNIC_POWER" }
 	local function Frame_OnEvent(self, event, unit, powerType)
 		if UnitIsPlayer(unit) then
 			powerType = replaceEventWithPowerType[event] or powerType
-			local _, ctype = UnitPowerType(unit)
+			local ptype, ctype = UnitPowerType(unit)
+			ctype = ctype or powerTokens[ptype]
 			if powerType == ctype then
 				for status in next, statuses do
 					status:UpdateUnitPower(unit, powerType)
@@ -193,7 +196,8 @@ function Power:GetText(unit)
 end
 
 function Power:GetColor(unit)
-	local _, type = UnitPowerType(unit)
+	local ptype, type = UnitPowerType(unit)
+	type = type or ({ [0] = "MANA", [1] = "RAGE", [2] = "FOCUS", [3] = "ENERGY", [6] = "RUNIC_POWER" })[ptype] -- 3.3.5: no token return
 	local c = powerColors[type] or powerColors["MANA"]
 	return c.r, c.g, c.b, c.a
 end

@@ -59,6 +59,9 @@ do
 end
 
 -- Quick/Instant Health management
+-- 3.3.5: COMBAT_LOG_EVENT_UNFILTERED passes (timestamp, subEvent, hideCaster, srcGUID,
+-- srcName, srcFlags, dstGUID, dstName, dstFlags, ...spell args), so dstGUID is arg 7 and
+-- spell amounts are 2 positions earlier than on clients with CombatLogGetCurrentEventInfo().
 local EnableQuickHealth, DisableQuickHealth
 do
 	local roster_units = Grid2.roster_units
@@ -68,15 +71,15 @@ do
 	local strlen = strlen
 	local health_cache = {}
 	local HealthEvents = {
-		SPELL_DAMAGE = -15,
-		RANGE_DAMAGE = -15,
-		SPELL_PERIODIC_DAMAGE = -15,
-		DAMAGE_SHIELD = -15,
-		DAMAGE_SPLIT = -15,
-		ENVIRONMENTAL_DAMAGE = -13,
-		SWING_DAMAGE = -12,
-		SPELL_PERIODIC_HEAL = 15,
-		SPELL_HEAL = 15
+		SPELL_DAMAGE = -13,
+		RANGE_DAMAGE = -13,
+		SPELL_PERIODIC_DAMAGE = -13,
+		DAMAGE_SHIELD = -13,
+		DAMAGE_SPLIT = -13,
+		ENVIRONMENTAL_DAMAGE = -11,
+		SWING_DAMAGE = -10,
+		SPELL_PERIODIC_HEAL = 13,
+		SPELL_HEAL = 13
 	}
 	function UnitQuickHealth(unit)
 		return health_cache[unit] or UnitHealthOriginal(unit)
@@ -97,7 +100,7 @@ do
 	local function CombatLogEvent(...)
 		local sign = HealthEvents[select(2, ...)]
 		if sign then
-			local unit = roster_units[select(8, ...)]
+			local unit = roster_units[select(7, ...)]
 			if unit and strlen(unit) < 8 then
 				local health
 				if sign > 0 then

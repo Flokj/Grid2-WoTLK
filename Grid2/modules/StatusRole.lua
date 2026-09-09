@@ -424,8 +424,9 @@ Grid2:DbSetStatusDefaultValue("master-looter", {type = "master-looter", color1 =
 
 local isValidRole = {TANK = true, HEALER = true, DAMAGER = true}
 
-local Orig_UnitGroupRolesAssigned = UnitGroupRolesAssigned
+local Orig_UnitGroupRolesAssigned = UnitGroupRolesAssigned -- nil on 3.3.5
 local function UnitGroupRolesAssigned(unit)
+	if not Orig_UnitGroupRolesAssigned then return "NONE" end -- 3.3.5: API missing
 	local isTank, isHealer, isDamager = Orig_UnitGroupRolesAssigned(unit)
 	return isTank and "TANK" or isHealer and "HEALER" or isDamager and "DAMAGER" or "NONE"
 end
