@@ -294,7 +294,6 @@ end
 -- {{ Register
 Grid2Options:RegisterStatusOptions("buff", "buff", function(self, status, options, optionParams)
 	self:MakeStatusEnabledOptions(status, options, optionParams)
-	self:MakeStatusAuraDescriptionOptions(status, options, optionParams)
 	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraMissingOptions(status, options, optionParams)
@@ -302,20 +301,21 @@ Grid2Options:RegisterStatusOptions("buff", "buff", function(self, status, option
 	self:MakeStatusColorOptions(status, options, optionParams)
 	self:MakeStatusAuraColorThresholdOptions(status, options, optionParams)
 	self:MakeStatusBlinkThresholdOptions(status, options, optionParams)
-	self:MakeStatusDeleteOptions(status, options, optionParams)
-end)
+end, {
+	groupOrder = 10, isDeletable = true,
+})
 
 Grid2Options:RegisterStatusOptions("debuff", "debuff", function(self, status, options, optionParams)
 	self:MakeStatusEnabledOptions(status, options, optionParams)
-	self:MakeStatusAuraDescriptionOptions(status, options, optionParams)
 	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraUseSpellIdOptions(status, options, optionParams)
 	self:MakeStatusColorOptions(status, options, optionParams)
 	self:MakeStatusAuraColorThresholdOptions(status, options, optionParams)
 	self:MakeStatusBlinkThresholdOptions(status, options, optionParams)
-	self:MakeStatusDeleteOptions(status, options, optionParams)
-end)
+end, {
+	groupOrder = 30, isDeletable = true,
+})
 
 Grid2Options:RegisterStatusOptions("debuffType", "debuff", function(self, status, options, optionParams)
 	self:MakeStatusEnabledOptions(status, options, optionParams)

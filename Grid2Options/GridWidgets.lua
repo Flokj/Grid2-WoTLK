@@ -99,12 +99,8 @@ do
 	local Type, Version = "Grid2Title", 1
 
 	-- tooltips management
-	-- 3.3.5 backport: old AceGUI-3.0 has no shared AceGUI.tooltip, fall back to GameTooltip.
-	local function GetTooltip()
-		return AceGUI.tooltip or GameTooltip
-	end
 	local function ShowTooltip(frame, text)
-		local tooltip = GetTooltip()
+		local tooltip = GameTooltip
 		tooltip:SetOwner(frame, "ANCHOR_NONE")
 		tooltip:ClearAllPoints()
 		tooltip:SetPoint("TOP",frame,"BOTTOM", 0, -8)
@@ -125,7 +121,7 @@ do
 	end
 
 	local function OnLeave(frame)
-		GetTooltip():Hide()
+		GameTooltip:Hide()
 	end
 
 	local function OnIconEnter(self)

@@ -22,7 +22,6 @@ Grid2Options:RegisterIndicatorOptions("shape", true, function(self, indicator)
 	self:MakeIndicatorShapeCustomOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
 	self:AddIndicatorOptions(indicator, statuses, options)
-	self:MakeIndicatorDeleteOptions(indicator, options)
 end)
 
 function Grid2Options:MakeIndicatorShapeCustomOptions(indicator, options)

@@ -165,6 +165,21 @@ function Grid2Options:GetStatusCompIndicatorsText(status)
 	return fmt("%s|T%s:0|t", text, icons.generic)
 end
 
+-- Tooltip text for the status title (hover), bcc parity: single buff/debuff
+-- titles show the spell tooltip instead of a visible description block.
+function Grid2Options:GetStatusTooltipText(status, params)
+	if not (params and params.titleDesc) then
+		local dbx = status.dbx
+		if dbx.type == "buff" or dbx.type == "debuff" then
+			return tonumber(dbx.spellName) and "spell:" .. dbx.spellName
+		elseif dbx.type == 'buffs' and dbx.subType == "blizzard" then
+			return L["Show relevant buffs for each unit frame (the same buffs displayed by the Blizzard raid frames)."]
+		end
+	else
+		return params.titleDesc
+	end
+end
+
 -- Add a title option to the status options
 function Grid2Options:MakeStatusTitleOptions(status, options, optionParams)
 	if not (options.title or (optionParams and optionParams.hideTitle)) then
@@ -172,7 +187,8 @@ function Grid2Options:MakeStatusTitleOptions(status, options, optionParams)
 		local name = fmt("%s  |cFF8681d1[%s]|r", group.name, self:GetStatusCompIndicatorsText(status))
 		local deletable = optionParams and (type(optionParams.isDeletable) == 'function' and optionParams.isDeletable(status) or optionParams.isDeletable)
 		self:MakeTitleOptions(options, name, group.desc, optionParams and optionParams.titleDesc, group.icon, group.iconCoords,
-			deletable and { status = status, icons = Grid2Options.statusTitleIconsOptions })
+			deletable and { status = status, icons = Grid2Options.statusTitleIconsOptions },
+			self:GetStatusTooltipText(status, optionParams))
 	end
 end
 

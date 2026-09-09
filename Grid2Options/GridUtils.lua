@@ -254,7 +254,7 @@ do
 	local titleCoords = {0.05, 0.95, 0.05, 0.95}
 	local titleMask = NORMAL_FONT_COLOR_CODE .. "%s|r\n%s"
 	local titleSep = {type = "header", order = 1.5, width = "full", name = ""}
-	function Grid2Options:MakeTitleOptions(options, title, subtitle, desc, icon, coords, arg)
+	function Grid2Options:MakeTitleOptions(options, title, subtitle, desc, icon, coords, arg, tip)
 		options.title = {
 			type = "description",
 			order = 0,
@@ -266,6 +266,7 @@ do
 			imageHeight = 30,
 			imageCoords = coords or titleCoords,
 			name = string.format(titleMask, title, subtitle),
+			desc = tip, -- hover tooltip (spell tooltip for single auras), see Grid2Title widget
 			arg = arg, -- optional action icons (delete/rename), see Grid2Title widget
 		}
 		if desc then

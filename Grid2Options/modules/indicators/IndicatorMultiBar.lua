@@ -18,7 +18,6 @@ Grid2Options:RegisterIndicatorOptions("multibar", true, function(self, indicator
 		self:MakeIndicatorStatusOptions(indicator.sideKick, colors)
 		options["colors"] = {type = "group", order = 20, name = L["Colors"], args = colors}
 	end
-	self:MakeIndicatorDeleteOptions(indicator, layout)
 end)
 
 -- Grid2Options:MakeIndicatorBarDisplayOptions()

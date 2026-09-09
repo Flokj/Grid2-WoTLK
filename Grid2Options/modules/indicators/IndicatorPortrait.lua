@@ -6,7 +6,6 @@ Grid2Options:RegisterIndicatorOptions("portrait", true, function(self, indicator
 	self:MakeIndicatorLocationOptions(indicator, options)
 	self:MakeIndicatorPortraitOptions(indicator, options)
 	self:AddIndicatorOptions(indicator, nil, options)
-	self:MakeIndicatorDeleteOptions(indicator, options)
 	end
 )
 

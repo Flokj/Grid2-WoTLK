@@ -20,7 +20,6 @@ Grid2Options:RegisterIndicatorOptions("glowborder", true, function(self, indicat
 	local statuses, options = {}, {}
 	self:MakeIndicatorBorderGlowOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
-	self:MakeIndicatorDeleteOptions(indicator, options)
 	self:AddIndicatorOptions(indicator, statuses, options)
 end)
 
