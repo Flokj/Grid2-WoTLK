@@ -50,6 +50,7 @@ function Grid2Options:Initialize()
 
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("Grid2", self.options)
 	ACD3 = ACD3 or LibStub("AceConfigDialog-3.0")
+	ACD3:SetDefaultSize("Grid2", 735, 585)
 	local sections = self.options.args
 	ACD3:AddToBlizOptions("Grid2", sections.general.name, "Grid2", "general")
 	ACD3:AddToBlizOptions("Grid2", sections.indicators.name, "Grid2", "indicators")
@@ -70,10 +71,13 @@ function Grid2Options:OnChatCommand(input)
 	local arg1, arg2 = self:GetArgs(input, 2)
 
 	if arg1 == nil then
-		if (ACD3.OpenFrames["Grid2"]) then
-			ACD3:Close("Grid2")
+		-- bcc parity: open in the custom Grid2OptionsFrame widget (Test button,
+		-- ESC handling) instead of a plain AceConfigDialog frame.
+		if self.optionsFrame then
+			self.optionsFrame:Hide()
 		else
-			ACD3:Open("Grid2")
+			self.optionsFrame = LibStub("AceGUI-3.0"):Create("Grid2OptionsFrame")
+			ACD3:Open("Grid2", self.optionsFrame)
 		end
 		return
 	end

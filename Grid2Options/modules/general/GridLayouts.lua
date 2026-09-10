@@ -23,6 +23,19 @@ do
 			Grid2Options:LayoutTestEnable(GetLayout(info), info.arg)
 		end
 	end
+	-- Global test toggle for the Test button in the options frame (bcc parity).
+	-- Shows the current layout with fake frames so it can be positioned.
+	local testActive = false
+	function Grid2Options:SetLayoutTestMode(enabled)
+		if enabled == nil then enabled = not testActive end
+		if enabled and InCombatLockdown() then return end
+		if enabled then
+			testActive = Grid2Options.LayoutTestEnable and Grid2Options:LayoutTestEnable(Grid2Layout.layoutName) or false
+		else
+			if Grid2Options.LayoutTestEnable then Grid2Options:LayoutTestEnable() end
+			testActive = false
+		end
+	end
 	function MakeLayoutsOptions()
 		local options = {}
 		local order = 10
