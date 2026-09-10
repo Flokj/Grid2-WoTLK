@@ -94,26 +94,34 @@ local function Icon_OnFrameUpdate(f)
 end
 
 -- Delayed updates
-local updates = {}
+local updates, updateFrame = {}
 local EnableDelayedUpdates
 EnableDelayedUpdates = function()
 	-- 3.3.5 backport: parent explicitly to UIParent. Grid2LayoutFrame may not
 	-- exist yet when the first icons indicator is set up at login, leaving the
 	-- driver parentless and its OnUpdate never firing (icons stay hidden).
-	CreateFrame("Frame", nil, UIParent):SetScript("OnUpdate", function()
-		for i = 1, #updates do
-			Icon_OnFrameUpdate(updates[i])
+	updateFrame = CreateFrame("Frame", nil, UIParent)
+	updateFrame:Hide()
+	updateFrame:SetScript("OnUpdate", function()
+		for f in next, updates do
+			Icon_OnFrameUpdate(f)
 		end
 		wipe(updates)
+		updateFrame:Hide()
 	end)
 	EnableDelayedUpdates = Grid2.Dummy
 end
 
 local function Icon_Update(self, parent)
-	-- 3.3.5 backport: update synchronously. The delayed-updates driver frame
-	-- proved unreliable here (icons stayed hidden with active statuses and no
-	-- errors); direct update is strictly more correct, batching was only an opt.
-	Icon_OnFrameUpdate(parent[self.name])
+	-- bcc parity: flag the frame, recompute once per tick. Synchronous updates
+	-- melt the client under mass aura events (25-man buffing at BG start).
+	local f = parent[self.name]
+	if f then
+		if not next(updates) then
+			updateFrame:Show()
+		end
+		updates[f] = true
+	end
 end
 
 local function Icon_Layout(self, parent)
