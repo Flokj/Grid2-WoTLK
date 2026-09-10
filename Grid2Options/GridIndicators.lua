@@ -41,14 +41,17 @@ function Grid2Options:MakeIndicatorTitleOptions(options, indicator)
 end
 
 local function DeleteIndicatorReal(indicator)
+	local name = indicator.name
+	Grid2Options.LI[name] = nil
 	Grid2Frame:WithAllFrames(indicator, "Disable")
-	Grid2:DbSetIndicator(indicator.name, nil)
+	Grid2:DbSetIndicator(name, nil)
 	if indicator.dbx.sideKick then
 		Grid2:DbSetIndicator(indicator.dbx.sideKick.name, nil)
 	end
 	Grid2:UnregisterIndicator(indicator)
 	Grid2Frame:UpdateIndicators()
 	Grid2Options:DeleteIndicatorOptions(indicator)
+	Grid2Options:SelectGroup('indicators')
 end
 
 function Grid2Options:DeleteIndicatorConfirm(indicator)

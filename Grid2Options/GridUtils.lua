@@ -558,16 +558,24 @@ do
 	local spells, sorted
 	function Grid2Options:GetPlayerSpells()
 		if not spells then
-			spells = {}
-			for i = 1, 1000 do
-				local type, spellID = GetSpellBookItemInfo(i, "spell")
-				if spellID and type == "SPELL" then
-					spells[spellID] = GetSpellInfo(spellID)
+			spells, sorted = {}, {}
+			-- 3.3.5 backport: GetSpellBookItemInfo() does not exist here.
+			-- Enumerate names and resolve IDs through the spell link; anything
+			-- unresolvable is skipped so the dropdown degrades to empty, never errors.
+			if GetSpellBookItemName then
+				for i = 1, 1000 do
+					local name = GetSpellBookItemName(i, "spell")
+					if name then
+						local link = GetSpellLink and GetSpellLink(name)
+						local id = link and tonumber(strmatch(link, "Hspell:(%d+)"))
+						if id and not spells[id] then
+							spells[id] = name
+							sorted[#sorted + 1] = id
+						end
+					end
 				end
+				table.sort(sorted, function(a, b) return spells[a] < spells[b] end)
 			end
-			sorted = {}
-			for k in next, spells do sorted[#sorted + 1] = k end
-			table.sort(sorted, function(a, b) return spells[a] < spells[b] end)
 		end
 		return spells, sorted
 	end

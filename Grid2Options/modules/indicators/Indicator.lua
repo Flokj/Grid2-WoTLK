@@ -1086,8 +1086,11 @@ do
 			order = order + 1,
 			get = function() return filter and next(filter) end,
 			set = function(_, v)
-				wipe(filter)[v] = true
-				RefreshIndicatorLoad(indicator)
+				-- guard: a stale widget can fire after the toggle cleared the filter
+				if filter then
+					wipe(filter)[v] = true
+					RefreshIndicatorLoad(indicator)
+				end
 			end,
 			hidden = function() return multi end,
 			values = values,
@@ -1096,10 +1099,12 @@ do
 			type = "multiselect",
 			order = order + 2,
 			name = name,
-			get = function(_, value) return filter[value] end,
+			get = function(_, value) return filter and filter[value] end,
 			set = function(_, value)
-				filter[value] = (not filter[value]) or nil
-				RefreshIndicatorLoad(indicator)
+				if filter then
+					filter[value] = (not filter[value]) or nil
+					RefreshIndicatorLoad(indicator)
+				end
 			end,
 			hidden = function() return not multi end,
 			values = values,

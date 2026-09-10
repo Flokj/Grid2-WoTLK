@@ -442,6 +442,8 @@ L["You can include a descriptive prefix using separators \"@#>\""] = "Вы мо�
 L["examples: Druid@Regrowth Chimaeron>Low Health"] = "Например: Druid@Regrowth Chimaeron>Low Health"
 -- L["Threshold to activate Color"] = ""
 -- L["Track by SpellId"] = ""
+L["Aura Name or Spell ID"] = "Имя ауры или ID заклинания"
+L["Change Buff/Debuff Name or Spell ID."] = "Сменить имя баффа/дебаффа или ID заклинания."
 -- L["Track by spellId instead of aura name"] = ""
 -- L["Assigned to"] = ""
 

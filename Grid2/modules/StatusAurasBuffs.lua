@@ -57,9 +57,9 @@ end
 local function status_GetIcons(self, unit, max)
 	local i, j, spells, filter, name, caster, _ = 1, 1, self.spells, self.isMine
 	repeat
-		name, textures[j], counts[j], _, durations[j], expirations[j], caster, _, _, sid = UnitAura(unit, i)
+		name, _, textures[j], counts[j], _, durations[j], expirations[j], caster, _, _, sid = UnitAura(unit, i)
 		if not name then break end
-		if (spells[name] or (sid and spells[sid])) and (filter==false or filter==myUnits[caster]) then -- 3.3.5: sid may be nil
+		if (spells[name] or (sid and spells[sid])) and (filter==false or filter==myUnits[caster]) then -- 3.3.5: spellId is the 11th return
 			slots[j] = i
 			j = j + 1
 		end
@@ -102,8 +102,8 @@ end
 local blizzard = { GetColor = Grid2.statusLibrary.GetColor }
 
 local function ShouldDisplayBuff(filter, spellId, caster, canApplyAura, isBossAura)
-	if not SpellGetVisibilityInfo then -- 3.3.5: API missing
-		return canApplyAura and myUnits[caster] and not SpellIsSelfBuff(spellId)
+	if not SpellGetVisibilityInfo then -- 3.3.5: API missing, and UnitAura has no spellId/canApplyAura;
+		return true -- the RAID_INCOMBAT/RAID_OUTOFCOMBAT UnitAura filter above already selects relevant buffs
 	end
 	local hasCustom, alwaysShowMine, showForMySpec = SpellGetVisibilityInfo(spellId, filter)
 	if hasCustom  then
@@ -117,9 +117,9 @@ function blizzard:GetIcons(unit, max)
 	local filter = UnitAffectingCombat("player") and "RAID_INCOMBAT" or "RAID_OUTOFCOMBAT"
 	local color, i, j, name, caster, spellId, canApplyAura, isBossAura, valid, _ = self.dbx.color1, 1, 1
 	repeat
-		name, textures[j], counts[j], _, durations[j], expirations[j], caster, _, _, spellId, canApplyAura, isBossAura = UnitAura(unit, i)
+		name, _, textures[j], counts[j], _, durations[j], expirations[j], caster = UnitAura(unit, i)
 		if not name then break end
-		if ShouldDisplayBuff(filter, spellId, caster, canApplyAura, isBossAura) then
+		if ShouldDisplayBuff(filter, nil, caster, true, nil) then
 			colors[j], slots[j] = color, i
 			j = j + 1
 		end

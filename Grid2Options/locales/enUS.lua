@@ -530,6 +530,8 @@ L["You can include a descriptive prefix using separators \"@#>\""]= true
 L["examples: Druid@Regrowth Chimaeron>Low Health"]= true
 L["Threshold to activate Color"] = true
 L["Track by SpellId"] = true
+L["Aura Name or Spell ID"] = true
+L["Change Buff/Debuff Name or Spell ID."] = true
 L["Track by spellId instead of aura name"] = true
 L["Assigned to"] = true
 

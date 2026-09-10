@@ -129,9 +129,9 @@ end
 local function status_GetIconsFilterStandard(self, unit, max)
 	local UpdateState, GetColor, i, j, name, debuffType, caster, sid, boss, _ = self.UpdateState, self.GetColorIcons, 1, 1
 	repeat
-		name, textures[j], counts[j], debuffType, durations[j], expirations[j], caster, _, _, sid, _, boss = UnitAura(unit, i, 'HARMFUL')
+		name, _, textures[j], counts[j], debuffType, durations[j], expirations[j], caster, _, _, sid = UnitAura(unit, i, 'HARMFUL')
 		if not name then break end
-		if UpdateState(self, unit, sid, name, counts[j], durations[j], caster, boss, debuffType) then
+		if UpdateState(self, unit, sid, name, counts[j], durations[j], caster, nil, debuffType) then
 			colors[j] = GetColor(self, debuffType, boss)
 			slots[j] = i
 			j = j + 1
@@ -146,9 +146,9 @@ local function status_GetIconsFilterStacks(self, unit, max)
 	local CheckState, GetColor, i, j, name, texture, count, debuffType, duration, expiration, caster, sid, boss, _ = self.CheckState, self.GetColorIcons, 1, 1
 	wipe(spells)
 	repeat
-		name, texture, count, debuffType, duration, expiration, caster, _, _, sid, _, boss = UnitAura(unit, i, 'HARMFUL')
+		name, _, texture, count, debuffType, duration, expiration, caster, _, _, sid = UnitAura(unit, i, 'HARMFUL')
 		if not name then break end
-		if CheckState(self, unit, sid, name, count, duration, caster, boss, debuffType) then
+		if CheckState(self, unit, sid, name, count, duration, caster, nil, debuffType) then
 			local k = spells[name]
 			if k then -- add extra stacks
 				counts[k] = counts[k] + (count==0 and 1 or count)

@@ -268,6 +268,18 @@ end
 -- Plugins can hook this function to initialize or update values in database
 function Grid2:UpdateDefaults()
 	local version = Grid2:DbGetValue("versions", "Grid2") or 0
+	-- Always-on fix (not version-gated): a single buff/debuff status holding an
+	-- aura list is a group by content — the single slot would flip between auras.
+	-- The singles options page no longer offers the multiline list, but legacy
+	-- statuses like this must still heal (see bcc upgrade <5 doing it once).
+	for _, dbx in pairs(self.db.profile.statuses) do
+		if dbx.auras and next(dbx.auras) and (dbx.type == "buff" or dbx.type == "debuff") then
+			dbx.type = dbx.type .. "s"
+			if dbx.type == "debuffs" then
+				dbx.useWhiteList = true
+			end
+		end
+	end
 	if version >= DB_VERSION then
 		return
 	end

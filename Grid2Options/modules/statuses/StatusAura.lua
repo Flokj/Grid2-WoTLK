@@ -119,6 +119,26 @@ function Grid2Options:MakeStatusBlinkThresholdOptions(status, options, optionPar
 end
 
 function Grid2Options:MakeStatusAuraUseSpellIdOptions(status, options, optionParams)
+	-- bcc parity: single spell field. Singles must not offer the multiline aura
+	-- list (it invites pasting a whole list into a single-slot status).
+	options.changeSpell = {
+		type = "input",
+		order = 4,
+		name = L["Aura Name or Spell ID"],
+		desc = L["Change Buff/Debuff Name or Spell ID."],
+		width = "normal",
+		get = function() return tostring(status.dbx.spellName) end,
+		set = function(info, text)
+			text = tonumber(text) or text
+			if strlen(text) > 0 and text ~= status.dbx.spellName then
+				status.dbx.spellName = text
+				status.dbx.useSpellId = (type(text) == "number") or nil
+				status:UpdateDB()
+				Grid2Options:MakeStatusOptions(status)
+				Grid2Options:NotifyChange()
+			end
+		end,
+	}
 	if not tonumber(status.dbx.spellName) then
 		return
 	end
@@ -293,7 +313,6 @@ end
 
 -- {{ Register
 Grid2Options:RegisterStatusOptions("buff", "buff", function(self, status, options, optionParams)
-	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraMissingOptions(status, options, optionParams)
 	self:MakeStatusAuraUseSpellIdOptions(status, options, optionParams)
@@ -305,7 +324,6 @@ end, {
 })
 
 Grid2Options:RegisterStatusOptions("debuff", "debuff", function(self, status, options, optionParams)
-	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraUseSpellIdOptions(status, options, optionParams)
 	self:MakeStatusColorOptions(status, options, optionParams)

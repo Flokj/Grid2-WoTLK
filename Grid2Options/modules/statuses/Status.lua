@@ -338,8 +338,10 @@ do
 			order = order+1,
 			get = function() return filter and next(filter) end,
 			set = function(_,v)
-				wipe(filter)[v] = true
-				status:RefreshLoad()
+				if filter then
+					wipe(filter)[v] = true
+					status:RefreshLoad()
+				end
 			end,
 			disabled = function() return not filter or dbx.load.disabled end,
 			hidden   = function() return multi end,
@@ -349,10 +351,12 @@ do
 			type = "multiselect",
 			order = order+2,
 			name = name,
-			get = function(info, value) return filter[value] end,
+			get = function(info, value) return filter and filter[value] end,
 			set = function(info, value)
-				filter[value] = (not filter[value]) or nil
-				status:RefreshLoad()
+				if filter then
+					filter[value] = (not filter[value]) or nil
+					status:RefreshLoad()
+				end
 			end,
 			hidden = function() return not multi end,
 			disabled = function() return dbx.load and dbx.load.disabled end,
@@ -428,7 +432,7 @@ do
 			name = L["Instance Name/ID"],
 			order = order+1,
 			get = function() return GetFilterZoneText(filter) end,
-			set = function(_,v) multi = SetFilterZoneText(status, filter,v) end,
+			set = function(_,v) if filter then multi = SetFilterZoneText(status, filter,v) end end,
 			disabled = function() return not filter or dbx.load.disabled end,
 			hidden   = function() return multi end,
 		}
@@ -439,7 +443,7 @@ do
 			width = "full",
 			multiline = 3,
 			get = function() return GetFilterZoneText(filter) end,
-			set = function(_,v) multi = SetFilterZoneText(status,filter,v) end,
+			set = function(_,v) if filter then multi = SetFilterZoneText(status,filter,v) end end,
 			hidden = function() return not multi end,
 			disabled = function() return dbx.load and dbx.load.disabled end,
 		}
