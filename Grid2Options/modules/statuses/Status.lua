@@ -11,17 +11,28 @@ do
 		ClassesValues2[class] = translation
 	end
 
-	local function StatusSetPlayerClass(status, playerClass, ismulti)
-		local suspended = nil
+	local function StatusSetPlayerClass(status, playerClass, ismulti, wasSuspended)
+		if wasSuspended == nil then
+			-- dropdown path: nothing mutated yet, snapshot before changing db.
+			-- multiselect path passes the pre-toggle snapshot explicitly,
+			-- because its set() already updated the table before calling here.
+			wasSuspended = status:IsSuspended()
+		end
 		if ismulti then
 			status.dbx.playerClass = "multi"
-			suspended = (not status.dbx.playerClasses or status.dbx.playerClasses[playerClass] ~= nil)
+			-- playerClasses table already updated by the multiselect set() caller;
+			-- suspension is decided by Grid2.playerClass membership (see IsSuspended).
+		elseif playerClass == "multi" then
+			-- dropdown switched to "Selected Classes": keep any existing selection
+			-- instead of wiping it, so flip-flopping the dropdown loses nothing.
+			status.dbx.playerClass = "multi"
+			status.dbx.playerClasses = status.dbx.playerClasses or {}
 		else
-			suspended = status:IsSuspended()
 			status.dbx.playerClass = (playerClass ~= "") and playerClass or nil
 			status.dbx.playerClasses = nil -- remove it
 		end
-		if suspended ~= status:IsSuspended() then
+		local suspended = status:IsSuspended()
+		if suspended ~= wasSuspended then
 			local name = status.name
 			for key, map in pairs(Grid2.db.profile.statusMap) do
 				local indicator = Grid2.indicators[key]
@@ -29,9 +40,9 @@ do
 					local priority = map[name]
 					if priority then
 						if suspended then
-							indicator:RegisterStatus(status, priority)
-						else
 							indicator:UnregisterStatus(status)
+						else
+							indicator:RegisterStatus(status, priority)
 						end
 						Grid2Frame:WithAllFrames(indicator, "Update")
 						Grid2Options:RefreshIndicatorOptions(indicator)
@@ -39,12 +50,18 @@ do
 				end
 			end
 			local group = Grid2Options:GetStatusGroup(status)
+			-- guards: group rename must be idempotent, the old code applied
+			-- strsub() on every toggle of any class and ate real name characters.
 			if suspended then
-				group.order = group.order - 500
-				group.name = strsub(group.name, 11, -3)
+				if strsub(group.name, 1, 10) ~= "|cFF808080" then
+					group.order = group.order + 500
+					group.name = string.format("|cFF808080%s|r", group.name)
+				end
 			else
-				group.order = group.order + 500
-				group.name = string.format("|cFF808080%s|r", group.name)
+				if strsub(group.name, 1, 10) == "|cFF808080" then
+					group.order = group.order - 500
+					group.name = strsub(group.name, 11, -3)
+				end
 			end
 			status:Refresh()
 		end
@@ -76,9 +93,11 @@ do
 				return status.dbx.playerClasses and status.dbx.playerClasses[c]
 			end,
 			set = function(_, c, v)
+				-- snapshot BEFORE mutating: StatusSetPlayerClass compares pre/post state
+				local wasSuspended = status:IsSuspended()
 				status.dbx.playerClasses = status.dbx.playerClasses or {}
 				status.dbx.playerClasses[c] = v or nil
-				StatusSetPlayerClass(status, c, true)
+				StatusSetPlayerClass(status, c, true, wasSuspended)
 			end,
 			values = ClassesValues2
 		}
