@@ -53,11 +53,14 @@ function AuraPredictor:GetValues(text, values, max)
 		-- search raid-debuffs if module is available
 		if self.type == "debuff" and Grid2Options.GetRaidDebuffsTable then
 			local module = (Grid2Options:GetRaidDebuffsTable())["The Lich King"]
-			for _, instance in pairs(module) do
-				for bossName, boss in pairs(instance) do
-					max = self:GetTableValues(boss, values, text, max, bossName, true)
-					if max == 0 then
-						return
+			if module then
+				for _, instance in pairs(module) do
+					for bossName, boss in pairs(instance) do
+						bossName = string.gsub(bossName, "%[.-%]", "")
+						max = self:GetTableValues(boss, values, text, max, bossName, true)
+						if max == 0 then
+							return
+						end
 					end
 				end
 			end

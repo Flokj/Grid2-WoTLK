@@ -3,7 +3,7 @@ local L = Grid2Options.L
 local media = LibStub("LibSharedMedia-3.0", true)
 
 Grid2Options:RegisterIndicatorOptions("icon", true, function(self, indicator)
-	local statuses, options = {}, {}
+	local statuses, options, filter = {}, {}, {}
 	self:MakeIndicatorTypeOptions(indicator, options)
 	self:MakeIndicatorLocationOptions(indicator, options)
 	self:MakeIndicatorSizeOptions(indicator, options)
@@ -11,7 +11,8 @@ Grid2Options:RegisterIndicatorOptions("icon", true, function(self, indicator)
 	self:MakeIndicatorIconCustomOptions(indicator, options)
 	self:MakeIndicatorHighlightEffectOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
-	self:AddIndicatorOptions(indicator, statuses, options)
+	self:MakeIndicatorLoadOptions(indicator, filter)
+	self:AddIndicatorOptions(indicator, statuses, options, nil, filter)
 end)
 
 function Grid2Options:MakeIndicatorIconCustomOptions(indicator, options)

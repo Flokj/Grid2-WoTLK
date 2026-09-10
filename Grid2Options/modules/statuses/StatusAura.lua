@@ -231,7 +231,7 @@ end
 function Grid2Options:MakeStatusDebuffTypeFilterOptions(status, options, optionParams)
 	self:MakeHeaderOptions(options, "DebuffFilter")
 	options.debuffFilter = {
-		type = "input",
+		type = "input", dialogControl = optionParams and optionParams.dialogControl,
 		order = 180,
 		width = "full",
 		name = "",
@@ -293,7 +293,6 @@ end
 
 -- {{ Register
 Grid2Options:RegisterStatusOptions("buff", "buff", function(self, status, options, optionParams)
-	self:MakeStatusEnabledOptions(status, options, optionParams)
 	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraMissingOptions(status, options, optionParams)
@@ -306,7 +305,6 @@ end, {
 })
 
 Grid2Options:RegisterStatusOptions("debuff", "debuff", function(self, status, options, optionParams)
-	self:MakeStatusEnabledOptions(status, options, optionParams)
 	self:MakeStatusAuraListOptions(status, options, optionParams)
 	self:MakeStatusAuraCommonOptions(status, options, optionParams)
 	self:MakeStatusAuraUseSpellIdOptions(status, options, optionParams)
@@ -318,8 +316,10 @@ end, {
 })
 
 Grid2Options:RegisterStatusOptions("debuffType", "debuff", function(self, status, options, optionParams)
-	self:MakeStatusEnabledOptions(status, options, optionParams)
 	self:MakeStatusColorOptions(status, options, optionParams)
 	self:MakeStatusBlinkThresholdOptions(status, options, optionParams)
 	self:MakeStatusDebuffTypeFilterOptions(status, options, optionParams)
-end, {groupOrder = 10})
+end, {
+	groupOrder = 10,
+	dialogControl = "Grid2ExpandedEditBox",
+})

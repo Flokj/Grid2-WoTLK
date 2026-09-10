@@ -20,6 +20,7 @@ local function Icon_OnFrameUpdate(f)
 	local auras = f.auras
 	local showStack = self.showStack
 	local showCool = self.showCooldown
+	local showIcons = self.showIcons
 	local useStatus = self.useStatusColor
 	local i = 1
 	for _, status in ipairs(self.statuses) do
@@ -28,7 +29,16 @@ local function Icon_OnFrameUpdate(f)
 				local k, textures, counts, expirations, durations, colors = status:GetIcons(unit, max)
 				for j = 1, k do
 					local aura = auras[i]
-					aura.icon:SetTexture(textures[j])
+					if showIcons then
+						aura.icon:SetTexture(textures[j])
+						if useStatus then
+							local c = colors[j]
+							aura:SetBackdropBorderColor(c.r, c.g, c.b, min(c.a, self.borderOpacity))
+						end
+					else
+						local c = colors[j]
+						aura.icon:SetTexture(c.r, c.g, c.b)
+					end
 					if showStack then
 						local count = counts[j]
 						aura.text:SetText(count > 1 and count or "")
@@ -37,19 +47,24 @@ local function Icon_OnFrameUpdate(f)
 						local expiration, duration = expirations[j], durations[j]
 						aura.cooldown:SetCooldown(expiration - duration, duration)
 					end
-					if useStatus then
-						local c = colors[j]
-						aura:SetBackdropBorderColor(c.r, c.g, c.b, min(c.a, self.borderOpacity))
-					end
 					aura:Show()
 					i = i + 1
 				end
 				max = max - k
 			else
 				local aura = auras[i]
-				aura.icon:SetTexture(status:GetIcon(unit))
-				aura.icon:SetTexCoord(status:GetTexCoord(unit))
-				aura.icon:SetVertexColor(status:GetVertexColor(unit))
+				if showIcons then
+					aura.icon:SetTexture(status:GetIcon(unit))
+					aura.icon:SetTexCoord(status:GetTexCoord(unit))
+					aura.icon:SetVertexColor(status:GetVertexColor(unit))
+					if useStatus then
+						local r, g, b, a = status:GetColor(unit)
+						aura:SetBackdropBorderColor(r, g, b, min(a or 1, self.borderOpacity))
+					end
+				else
+					local r, g, b = status:GetColor(unit)
+					aura.icon:SetTexture(r, g, b)
+				end
 				if showStack then
 					local count = status:GetCount(unit)
 					aura.text:SetText(count > 1 and count or "")
@@ -57,10 +72,6 @@ local function Icon_OnFrameUpdate(f)
 				if showCool then
 					local expiration, duration = status:GetExpirationTime(unit) or 0, status:GetDuration(unit) or 0
 					aura.cooldown:SetCooldown(expiration - duration, duration)
-				end
-				if useStatus then
-					local r, g, b, a = status:GetColor(unit)
-					aura:SetBackdropBorderColor(r, g, b, min(a or 1, self.borderOpacity))
 				end
 				aura:Show()
 				i = i + 1
@@ -220,6 +231,10 @@ local function Icon_UpdateDB(self, dbx)
 	end
 	self.showCooldown = not dbx.disableCooldown
 	self.showStack = not dbx.disableStack
+	-- bcc parity: Display Squares option, flat status-color square instead of icon.
+	-- 3.3.5 backport: Texture:SetColorTexture() does not exist here, solid color
+	-- via SetTexture(r,g,b) on the icon texture (update func branches on this flag).
+	self.showIcons = not dbx.disableIcons
 	self.useStatusColor = dbx.useStatusColor
 	self.borderOpacity = dbx.borderOpacity or 1
 	self.colorBorder = Grid2:MakeColor(dbx.color1, "WHITE")

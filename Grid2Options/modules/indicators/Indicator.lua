@@ -238,7 +238,6 @@ do
 			confirm = function(info, key)
 				return Grid2.indicators[key].dbx.type == "multibar" and L["This indicator cannot be changed from here: go to indicators section to assign/unassign statuses to this indicator."]
 			end,
-			disabled = function() return status:IsSuspended() end
 		}
 		return options
 	end
@@ -1042,6 +1041,84 @@ do
 			end,
 			hidden = function() return indicator.dbx.highlightType ~= -1 end,
 		}
+		return options
+	end
+end
+
+-- Grid2Options:MakeIndicatorLoadOptions(indicator, options)
+-- bcc parity, playerClass filter only: unitType needs headerName metadata that
+-- the 3.3.5 layout core does not provide, and the theme filter needs the retail
+-- theme-suspend core; both left out. The dbx.load schema stays compatible.
+do
+	local function RefreshIndicatorLoad(indicator)
+		indicator:UpdateFilter()
+		Grid2Frame:UpdateIndicators()
+	end
+
+	local function SetFilterOptions(indicator, options, order, key, values, defValue, name, desc)
+		local dbx    = indicator.dbx
+		local filter = dbx.load and dbx.load[key]
+		local multi  = filter and next(filter, next(filter)) ~= nil
+		options[key] = {
+			type = "toggle",
+			name = name,
+			desc = desc or name,
+			order = order,
+			get = function() return filter end,
+			set = function()
+				if multi then
+					multi, filter, dbx.load[key] = nil, nil, nil
+					if not next(dbx.load) then dbx.load = nil end
+				elseif filter then
+					multi = true
+				else
+					dbx.load = dbx.load or {}
+					filter = { [defValue] = true }
+					dbx.load[key] = filter
+				end
+				RefreshIndicatorLoad(indicator)
+			end,
+		}
+		options[key..'1'] = {
+			type = "select",
+			name = name,
+			desc = desc or name,
+			order = order + 1,
+			get = function() return filter and next(filter) end,
+			set = function(_, v)
+				wipe(filter)[v] = true
+				RefreshIndicatorLoad(indicator)
+			end,
+			hidden = function() return multi end,
+			values = values,
+		}
+		options[key..'2'] = {
+			type = "multiselect",
+			order = order + 2,
+			name = name,
+			get = function(_, value) return filter[value] end,
+			set = function(_, value)
+				filter[value] = (not filter[value]) or nil
+				RefreshIndicatorLoad(indicator)
+			end,
+			hidden = function() return not multi end,
+			values = values,
+		}
+		options[key.."3"] = {
+			type = "description",
+			name = "",
+			order = order + 3,
+		}
+	end
+
+	function Grid2Options:MakeIndicatorLoadOptions(indicator, options)
+		SetFilterOptions( indicator, options, 10,
+			'playerClass',
+			self.PLAYER_CLASSES,
+			Grid2.playerClass,
+			L["Player Class"],
+			L["Load the indicator only if your toon belong to the specified class."]
+		)
 		return options
 	end
 end

@@ -95,7 +95,7 @@ Grid2Options.statusTitleIconsOptions = {
 -- Delete a status after confirmation
 function Grid2Options:DeleteStatusConfirm(status)
 	if status then
-		if next(status.indicators) == nil and not status:IsSuspended() then
+		if next(status.indicators) == nil and not status.suspended then
 			self:ConfirmDialog( L["Are you sure you want to delete this status?"], function() Grid2Options:DeleteStatus(status) end )
 		else
 			self:MessageDialog( L["This status cannot be deleted because is attached to some indicators or the status is not enabled for this character."] )
@@ -184,7 +184,10 @@ end
 function Grid2Options:MakeStatusTitleOptions(status, options, optionParams)
 	if not (options.title or (optionParams and optionParams.hideTitle)) then
 		local group = self:GetStatusGroup(status)
-		local name = fmt("%s  |cFF8681d1[%s]|r", group.name, self:GetStatusCompIndicatorsText(status))
+		-- group.name may be a function (live suspended gray, bcc parity) — resolve it.
+		local gname = group.name
+		if type(gname) == "function" then gname = gname() end
+		local name = fmt("%s  |cFF8681d1[%s]|r", gname, self:GetStatusCompIndicatorsText(status))
 		local deletable = optionParams and (type(optionParams.isDeletable) == 'function' and optionParams.isDeletable(status) or optionParams.isDeletable)
 		self:MakeTitleOptions(options, name, group.desc, optionParams and optionParams.titleDesc, group.icon, group.iconCoords,
 			deletable and { status = status, icons = Grid2Options.statusTitleIconsOptions },
@@ -197,8 +200,20 @@ function Grid2Options:MakeStatusChildOptions(status, options)
 	options = options or self:GetStatusOptions(status, true)
 	local setupFunc, optionParams = self:GetStatusSetupFunc(status)
 	if setupFunc then
-		setupFunc(self, status, options, optionParams)
-		self:MakeStatusTitleOptions(status, options, optionParams)
+		-- bcc parity: statuses with a custom page layout (hideTitle) build it
+		-- themselves; only standard pages get title + General/Load/Indicators tabs.
+		if optionParams and optionParams.hideTitle then
+			setupFunc(self, status, options, optionParams)
+		else
+			self:MakeStatusTitleOptions(status, options, optionParams)
+			options.settings   = { type = "group", order = 100, name = L['General'], args = {} }
+			options.load       = { type = "group", order = 200, name = L['Load'], args = {} }
+			options.indicators = { type = "group", order = 300, name = L['Indicators'], args = {} }
+			self:MakeStatusLoadOptions( status, options.load.args, optionParams )
+			self:MakeStatusIndicatorsOptions( status, options.indicators.args )
+			options = options.settings.args
+			setupFunc(self, status, options, optionParams)
+		end
 	end
 end
 
@@ -255,11 +270,19 @@ function Grid2Options:MakeStatusOptions(status)
 			wipe(group.args)
 		end
 
-		local order = params and params.groupOrder
-		group.order = (type(order) == "function" and order(status) or order) or (status.name == status.dbx.type and 100 or 200)
-		if status:IsSuspended() then
-			group.order = group.order + 500
-			group.name = fmt("|cFF808080%s|r", group.name)
+		local gorder = params and params.groupOrder
+		local order = (type(gorder) == "function" and gorder(status) or gorder) or (status.name == status.dbx.type and 100 or 200)
+		group.desc = desc
+		group.icon = icon
+		group.iconCoords = coords
+		group.childGroups = params and params.childGroups or "tab"
+		-- bcc parity: gray/active evaluated live from the core load filter state,
+		-- no one-time string chopping (see old StatusSetPlayerClass bug).
+		group.order = function(info)
+			return status.suspended and order + 500 or order
+		end
+		group.name = function(info)
+			return status.suspended and string.format('|cFF808080%s|r', name) or name
 		end
 		self:MakeStatusChildOptions(status, group.args)
 	end

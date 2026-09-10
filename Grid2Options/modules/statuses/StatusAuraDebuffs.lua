@@ -151,7 +151,6 @@ function Grid2Options:MakeStatusDebuffsFilterOptions(status, options, optionPara
 end
 
 function Grid2Options:MakeStatusDebuffsGeneralOptions(status, options, optionParams)
-	self:MakeStatusEnabledOptions(status, options, optionParams)
 	self:MakeStatusColorOptions(status, options, optionParams)
 	self:MakeStatusBlinkThresholdOptions(status, options, optionParams)
 	self:MakeStatusDebuffsFilterOptions(status, options, optionParams)

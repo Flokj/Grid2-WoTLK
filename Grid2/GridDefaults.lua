@@ -4,7 +4,7 @@ local type, pairs = type, pairs
 local defaultFont = Grid2.defaultFont or "Friz Quadrata TT"
 Grid2.defaultFont = defaultFont
 
-local DB_VERSION = 9
+local DB_VERSION = 10
 
 -- Database manipulation functions
 
@@ -325,6 +325,28 @@ function Grid2:UpdateDefaults()
 						dbx[i], dbx["bar" .. i] = bar, nil
 					end
 					dbx.barCount, dbx.opacity, dbx.backMainAnchor = nil, nil, nil
+				end
+			end
+		end
+		if version < 10 then
+			-- upgrade class filter: the old per-status playerClass/playerClasses fields
+			-- (r736 options) become a standard load filter, like BCC did in upgrade <9.
+			for _, dbx in pairs(self.db.profile.statuses) do
+				if dbx.playerClass then
+					local classes
+					if dbx.playerClass == "multi" then
+						classes = dbx.playerClasses
+					else
+						classes = { [dbx.playerClass] = true }
+					end
+					if classes and next(classes) then
+						dbx.load = dbx.load or {}
+						dbx.load.playerClass = dbx.load.playerClass or {}
+						for class in pairs(classes) do
+							dbx.load.playerClass[class] = true
+						end
+					end
+					dbx.playerClass, dbx.playerClasses = nil, nil
 				end
 			end
 		end

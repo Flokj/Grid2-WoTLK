@@ -2,13 +2,14 @@ local Grid2Options = Grid2Options
 local L = Grid2Options.L
 
 Grid2Options:RegisterIndicatorOptions("text", true, function(self, indicator)
-	local colors, statuses, options = {}, {}, {}
+	local colors, statuses, options, filter = {}, {}, {}, {}
 	self:MakeIndicatorTypeOptions(indicator, options)
 	self:MakeIndicatorLocationOptions(indicator, options)
 	self:MakeIndicatorTextCustomOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
 	self:MakeIndicatorStatusOptions(indicator.sideKick, colors)
-	self:AddIndicatorOptions(indicator, statuses, options, colors)
+	self:MakeIndicatorLoadOptions(indicator, filter)
+	self:AddIndicatorOptions(indicator, statuses, options, colors, filter)
 end)
 
 function Grid2Options:MakeIndicatorTextCustomOptions(indicator, options)

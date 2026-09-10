@@ -2,14 +2,15 @@ local media = LibStub("LibSharedMedia-3.0", true)
 local L = Grid2Options.L
 
 Grid2Options:RegisterIndicatorOptions("icons", true, function(self, indicator)
-	local statuses, options = {}, {}
+	local statuses, options, filter = {}, {}, {}
 	self:MakeIndicatorTypeLevelOptions(indicator, options)
 	self:MakeIndicatorAuraIconsLocationOptions(indicator, options)
 	self:MakeIndicatorAuraIconsSizeOptions(indicator, options)
 	self:MakeIndicatorAuraIconsBorderOptions(indicator, options)
 	self:MakeIndicatorAuraIconsCustomOptions(indicator, options)
 	self:MakeIndicatorStatusOptions(indicator, statuses)
-	self:AddIndicatorOptions(indicator, statuses, options)
+	self:MakeIndicatorLoadOptions(indicator, filter)
+	self:AddIndicatorOptions(indicator, statuses, options, nil, filter)
 end)
 
 function Grid2Options:MakeIndicatorAuraIconsBorderOptions(indicator, options, optionParams)
@@ -170,6 +171,18 @@ function Grid2Options:MakeIndicatorAuraIconsSizeOptions(indicator, options, opti
 		end,
 		hidden = function()
 			return (indicator.dbx.iconSize or Grid2Frame.db.profile.iconSize or 1) > 1
+		end,
+	}
+	options.disableIcons = {
+		type = "toggle",
+		order = 17,
+		name = L["Display Squares"],
+		desc = L["Display flat square textures instead of the icons provided by the statuses."],
+		tristate = false,
+		get = function() return indicator.dbx.disableIcons end,
+		set = function(_, v)
+			indicator.dbx.disableIcons = v or nil
+			self:RefreshIndicator(indicator, "Layout")
 		end,
 	}
 end
