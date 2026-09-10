@@ -1038,7 +1038,6 @@ L["Tanks"] = true
 L["Target"] = true
 L["Target of Focus"] = true
 L["Target of Target"] = true
-L["Test"] = true
 L["Themes"] = true
 L["There are conditions referencing this theme. Are you sure you want to delete the selected theme ?"] = true
 L["There are indicators linked to this status or the status is not enabled for this character."] = true
