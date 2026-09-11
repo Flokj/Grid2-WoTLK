@@ -50,6 +50,9 @@ function Grid2Options:Initialize()
 
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("Grid2", self.options)
 	ACD3 = ACD3 or LibStub("AceConfigDialog-3.0")
+	-- bcc parity: default window size (custom Grid2OptionsFrame is not used on
+	-- this client, so the minimum size is enforced on open, see OnChatCommand).
+	ACD3:SetDefaultSize("Grid2", 735, 585)
 	local sections = self.options.args
 	ACD3:AddToBlizOptions("Grid2", sections.general.name, "Grid2", "general")
 	ACD3:AddToBlizOptions("Grid2", sections.indicators.name, "Grid2", "indicators")
@@ -74,6 +77,18 @@ function Grid2Options:OnChatCommand(input)
 			ACD3:Close("Grid2")
 		else
 			ACD3:Open("Grid2")
+			-- bcc parity: the stock AceGUI frame allows shrinking down to
+			-- 400x200, overlapping tree and content. bcc enforces 570x500
+			-- on its custom frame; enforce the same minimum here.
+			local frame = ACD3.OpenFrames and ACD3.OpenFrames["Grid2"]
+			frame = frame and frame.frame
+			if frame then
+				if frame.SetResizeBounds then
+					frame:SetResizeBounds(570, 500)
+				elseif frame.SetMinResize then
+					frame:SetMinResize(570, 500)
+				end
+			end
 		end
 		return
 	end

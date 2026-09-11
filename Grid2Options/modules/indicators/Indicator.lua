@@ -51,16 +51,23 @@ do
 		Grid2Options:RefreshIndicator(indicator, "Layout")
 	end
 
-	local function RefreshIndicatorCurrentStatusOptions(info)
-		wipe(info.arg.options)
-		Grid2Options:MakeIndicatorCurrentStatusOptions(info.arg.indicator, info.arg.options)
+	local function RefreshIndicatorCurrentStatusOptions(arg)
+		local options = arg.options
+		local curOptions = {}
+		Grid2Options:MakeIndicatorCurrentStatusOptions(arg.indicator, curOptions)
+		options.statusesCurrent = curOptions.statusesCurrent
+		Grid2Options:NotifyChange()
 	end
 
 	local function SetIndicatorStatus(info, statusKey, value)
+		-- custom widgets call set() directly with the container user table,
+		-- which has no .arg (ACD only provides it on the full info table).
+		local arg = info.arg or (info.option and info.option.arg)
+		if not arg then return end
 		for key, status in Grid2:IterateStatuses() do
 			if key == statusKey then
-				RegisterIndicatorStatus(info.arg.indicator, status, value)
-				RefreshIndicatorCurrentStatusOptions(info)
+				RegisterIndicatorStatus(arg.indicator, status, value)
+				RefreshIndicatorCurrentStatusOptions(arg)
 				return
 			end
 		end
@@ -130,89 +137,131 @@ do
 	end
 
 	-- Grid2Options:MakeIndicatorCurrentStatusOptions(indicator, options)
-	function Grid2Options:MakeIndicatorCurrentStatusOptions(indicator, options)
-		if indicator.statuses then
-			local map = LoadStatusMap(indicator)
-			local hide = #map <= 1 or nil
-			local arg = {indicator = indicator, options = options}
-			for _, status in ipairs(map) do
-				local priority = map[status]
-				options[status.name] = {
-					type = "toggle",
-					order = 500 - map[status],
-					width = "double",
-					name = Grid2Options.LocalizeStatus(status),
-					desc = L["Select statuses to display with the indicator"],
-					get = function()
-						return true
-					end,
-					set = SetIndicatorStatusCurrent,
-					arg = arg
-				}
-				options[status.name .. "U"] = {
-					type = "execute",
-					order = 500.1 - map[status],
-					width = "half",
-					image = "Interface\\Addons\\Grid2Options\\media\\arrow-up",
-					imageWidth = 16,
-					imageHeight = 14,
-					name = "",
-					desc = L["Move the status higher in priority"],
-					func = function(info)
-						StatusShiftUp(info, map, indicator, status)
-					end,
-					arg = arg,
-					hidden = hide
-				}
-				options[status.name .. "D"] = {
-					type = "execute",
-					order = 500.2 - map[status],
-					width = "half",
-					image = "Interface\\Addons\\Grid2Options\\media\\arrow-down",
-					imageWidth = 16,
-					imageHeight = 14,
-					name = "",
-					desc = L["Move the status lower in priority"],
-					func = function(info)
-						StatusShiftDown(info, map, indicator, status)
-					end,
-					arg = arg,
-					hidden = hide
-				}
-				options[status.name .. "S"] = {
-					type = "description",
-					name = "",
-					order = 500.3 - map[status],
-					hidden = hide
-				}
+	-- bcc parity: checkbox list with unassign/up/down/go-to-status, driven by
+	-- the Grid2IndicatorCurrentStatuses widget ('st' command jumps to the status).
+	local function StatusShift(indicator, status, dir)
+		local map = LoadStatusMap(indicator)
+		local index1 = GetIndexOfValue(map, status)
+		if index1 then
+			local index2 = index1 + dir
+			if index2 < 1 then
+				index2 = #map
+			elseif index2 > #map then
+				index2 = 1
 			end
+			local status1 = map[index1]
+			local status2 = map[index2]
+			local priority1 = map[status1]
+			local priority2 = map[status2]
+			Grid2:DbSetMap(indicator.name, status1.name, priority2)
+			indicator:SetStatusPriority(status1, priority2)
+			Grid2:DbSetMap(indicator.name, status2.name, priority1)
+			indicator:SetStatusPriority(status2, priority1)
+			Grid2Options:RefreshIndicator(indicator, "Layout")
 		end
 	end
 
-	-- Grid2Options:MakeIndicatorStatusOptions()
-	function Grid2Options:MakeIndicatorStatusOptions(indicator, options)
-		local curOptions = {}
-		self:MakeIndicatorCurrentStatusOptions(indicator, curOptions)
+	function Grid2Options:MakeIndicatorCurrentStatusOptions(indicator, options)
 		options.statusesCurrent = {
-			type = "group",
-			order = 100,
-			inline = true,
+			type = "multiselect", dialogControl = "Grid2IndicatorCurrentStatuses",
+			order = 1,
+			width = "full",
 			name = L["Current Statuses"],
 			desc = L["Current statuses in order of priority"],
-			args = curOptions
-		}
-		options.statusesAvailable = {
-			type = "multiselect",
-			order = 200,
-			name = L["Available Statuses"],
-			desc = L["Available statuses you may add"],
-			values = function()
-				return self:GetAvailableStatusValues(indicator)
+			values = function(info)
+				local values = {}
+				local dbx = Grid2:DbGetValue("statusMap", indicator.name)
+				if dbx then
+					for statusKey, priority in pairs(dbx) do
+						local status = Grid2:GetStatusByName(statusKey)
+						if status then
+							values[string.format("%04d:%s", 1000 - priority, statusKey)] = Grid2Options.LocalizeStatus(status)
+						end
+					end
+				end
+				return values
 			end,
-			get = false,
-			set = SetIndicatorStatus,
-			arg = {indicator = indicator, options = curOptions}
+			get = true,
+			set = function(info, cmd, key)
+				if not key then return end
+				local status = Grid2:GetStatusByName(select(2, strsplit(':', key, 2)))
+				if not status then return end
+				if cmd == 'rm' then
+					RegisterIndicatorStatus(indicator, status, false)
+				elseif cmd == 'up' then
+					StatusShift(indicator, status, -1)
+				elseif cmd == 'dn' then
+					StatusShift(indicator, status, 1)
+				else
+					-- no DB change here, so no refresh (a refresh would yank the
+					-- dialog back to this page). Single deep select: SelectGroup
+					-- itself marks every level expanded, one refresh feeds all.
+					-- LoadOnDemand builds status pages on first visit: pre-build
+					-- the target page (and the statuses level if needed), or the
+					-- first jump feeds the openManager placeholder = empty panel.
+					local category, statusName = Grid2Options:GetStatusCategory(status), status.name
+					do
+						local root = Grid2Options.options and Grid2Options.options.args
+						local node = root and root.statuses
+						if node and not (node.args and node.args[category]) then
+							local buildAll = Grid2Options.MakeStatusesOptions_ or Grid2Options.MakeStatusesOptions
+							if buildAll then buildAll(Grid2Options) end
+						end
+						local buildChild = Grid2Options.MakeStatusChildOptions_ or Grid2Options.MakeStatusChildOptions
+						if buildChild then buildChild(Grid2Options, status) end
+					end
+					Grid2Options:SelectGroup('statuses', category, statusName)
+				end
+			end,
 		}
+	end
+
+	-- Grid2Options:MakeIndicatorStatusOptions()
+	-- bcc layout: no wrapper groups, the statuses tab shows the current-statuses
+	-- widget, an "Available Statuses" title, then one subgroup per category
+	-- (AceConfig renders subgroups as the left tree, like bcc).
+	-- Filter = fork's GetAvailableStatusValues plus the category match.
+	local function GetCategoryAvailableValues(indicator, catKey)
+		local values = {}
+		for statusKey, status in Grid2:IterateStatuses() do
+			if Grid2Options:GetStatusCategory(status) == catKey
+				and Grid2Options:IsCompatiblePair(indicator, status)
+				and status.name ~= "test" and not status.suspended then
+				values[statusKey] = Grid2Options.LocalizeStatus(status)
+			end
+		end
+		if indicator.statuses then
+			for _, status in ipairs(indicator.statuses) do
+				values[status.name] = nil
+			end
+		end
+		return values
+	end
+	function Grid2Options:MakeIndicatorStatusOptions(indicator, options)
+		self:MakeIndicatorCurrentStatusOptions(indicator, options)
+		options.statusesTitle = {
+			type = "description", order = 2, fontSize = "medium",
+			name = string.format("|cffffd200    %s|r", L["Available Statuses"]),
+		}
+		for catKey, category in pairs(self.categories) do
+			options[catKey] = {
+				type = "group", order = category.order,
+				name = " " .. category.name,
+				args = { statuses = {
+					type = "multiselect", dialogControl = "Grid2SimpleMultiselect",
+					order = 1, width = "full", name = "",
+					values = function(info)
+						return GetCategoryAvailableValues(indicator, info[#info-1])
+					end,
+					get = false,
+					set = SetIndicatorStatus,
+					arg = {indicator = indicator, options = options},
+				} },
+				hidden = function()
+					return not next(GetCategoryAvailableValues(indicator, catKey))
+				end,
+			}
+		end
 	end
 
 	-- Grid2Options:MakeStatusIndicatorOptions()

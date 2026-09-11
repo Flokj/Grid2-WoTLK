@@ -280,19 +280,41 @@ do
 		if math.abs(width-curwidth)>1.5 then
 			local scroll = self.children[1]
 			if scroll then
+				-- right-align the row icons: resize each checkbox to fill the
+				-- row minus its own icons (rows have 1 or 3 icons).
 				local children = scroll.children
-				for i=1,#children,4 do
-					children[i]:SetWidth(width-120)
+				local i = 1
+				while i <= #children do
+					local child = children[i]
+					if child.type == "CheckBox" then
+						local nicons, j = 0, i + 1
+						while j <= #children and children[j].type == "Icon" do
+							nicons, j = nicons + 1, j + 1
+						end
+						child:SetWidth(width - 25 * nicons - 45)
+						i = j
+					else
+						i = i + 1
+					end
 				end
 				curwidth = width
 			end
 		end
 	end
 
+	-- forward declaration (defined below SetList, Lua locals are visible only after declaration)
+	local RefreshWidgetList
+
 	local function Execute(widget) -- Code specific for AceConfigDialog because custom multiselect management code is bugged/unfinished in AceConfigDialog library
 		local user = widget.parent.parent:GetUserDataTable()
 		user.option.set( user, widget:GetUserData('cmd'), widget:GetUserData('key') )
-		AceDlg:Open('Grid2', optionsFrame, unpack(optionsFrame:GetUserData('basepath') or {}))
+		if optionsFrame then
+			AceDlg:Open('Grid2', optionsFrame, unpack(optionsFrame:GetUserData('basepath') or {}))
+		elseif widget:GetUserData('cmd') ~= 'st' then
+			-- 'st' navigates to another page: no rebuild here, or the
+			-- dialog would jump straight back to this page.
+			RefreshWidgetList(widget, user)
+		end
 	end
 
 	local function CreateItem(parent, type, event, key, cmd, width, imglabel, tooltip)
@@ -325,11 +347,13 @@ do
 		scroll:SetFullHeight(false)
 		self:PauseLayout()
 		self:AddChild(scroll)
-		-- create checkbox & icons
+		-- create checkbox & icons (right-aligned: checkbox fills the row minus its icons)
 		curwidth = math.max(250, curwidth)
+		local multi = #sorttable > 1
+		local nicons = multi and 3 or 1
 		for _,key in ipairs(sorttable) do
-			CreateItem( scroll, 'CheckBox', 'OnValueChanged', key, 'rm', curwidth - 120, values[key] )
-			if #sorttable>1 then
+			CreateItem( scroll, 'CheckBox', 'OnValueChanged', key, 'rm', curwidth - 25 * nicons - 45, values[key] )
+			if multi then
 				CreateItem( scroll, 'Icon', 'OnClick', key, 'up', 25, "Interface\\Addons\\Grid2Options\\media\\arrow-up" )
 				CreateItem( scroll, 'Icon', 'OnClick', key, 'dn', 25, "Interface\\Addons\\Grid2Options\\media\\arrow-down" )
 			end
@@ -342,6 +366,18 @@ do
 		self:ResumeLayout()
 		-- clean up
 		wipe(sorttable)
+	end
+
+	-- No custom Grid2OptionsFrame on this client (optionsFrame==nil): rebuild
+	-- this widget list in place after a click instead of reopening the dialog.
+	RefreshWidgetList = function(item, user)
+		local scroll = item.parent
+		local list = scroll and scroll.parent
+		if list and list.ReleaseChildren and user and user.option and user.option.values then
+			list:ReleaseChildren()
+			SetList(list, user.option.values(user) or {})
+			Grid2Options:NotifyChange()
+		end
 	end
 
 	AceGUI:RegisterWidgetType( WidgetType, function()
@@ -366,10 +402,17 @@ do
 
 	local sorttable, dummy = {}, function() end
 
+	-- forward declaration (defined below SetList, Lua locals are visible only after declaration)
+	local RefreshWidgetList
+
 	local function Execute(widget, event, ...) -- Code specific for AceConfigDialog because custom multiselect management code is bugged/unfinished in AceConfigDialog library
 		local user = widget.parent:GetUserDataTable()
 		user.option.set( user, widget:GetUserData("value"), ... )
-		AceDlg:Open('Grid2', optionsFrame, unpack(optionsFrame:GetUserData('basepath') or {}))
+		if optionsFrame then
+			AceDlg:Open('Grid2', optionsFrame, unpack(optionsFrame:GetUserData('basepath') or {}))
+		else
+			RefreshWidgetList(widget, user)
+		end
 	end
 
 	local function SetList(self, values)
@@ -404,6 +447,17 @@ do
 		local check = self:GetUserData('children')[key]
 		if check and check.checked ~= value then
 			check:SetValue(value)
+		end
+	end
+
+	-- No custom Grid2OptionsFrame on this client (optionsFrame==nil): rebuild
+	-- this widget list in place after a click instead of reopening the dialog.
+	RefreshWidgetList = function(item, user)
+		local list = item.parent
+		if list and list.ReleaseChildren and user and user.option and user.option.values then
+			list:ReleaseChildren()
+			SetList(list, user.option.values(user) or {})
+			Grid2Options:NotifyChange()
 		end
 	end
 

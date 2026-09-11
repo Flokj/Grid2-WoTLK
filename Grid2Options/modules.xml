@@ -33,8 +33,8 @@
 <Script file="modules\statuses\StatusAuraBuffs.lua"/>
 <Script file="modules\statuses\StatusAuraDebuffs.lua"/>
 <Script file="modules\statuses\StatusAuraNew.lua"/>
-<Script file="modules\statuses\StatusAuraNewPredictor.lua"/>
 <Script file="modules\statuses\StatusAuraNewSpells.lua"/>
+<Script file="modules\statuses\StatusAuraNewPredictor.lua"/>
 <Script file="modules\statuses\StatusBanzai.lua"/>
 <Script file="modules\statuses\StatusColor.lua"/>
 <Script file="modules\statuses\StatusColorNew.lua"/>
@@ -66,7 +66,6 @@
 <Script file="modules\indicators\IndicatorSquare.lua"/>
 <Script file="modules\indicators\IndicatorText.lua"/>
 <Script file="modules\indicators\NewIndicator.lua"/>
-<Script file="modules\indicators\StatusesIndicator.lua"/>
 <Script file="modules\indicators\TypeIndicator.lua"/>
 
 </Ui>

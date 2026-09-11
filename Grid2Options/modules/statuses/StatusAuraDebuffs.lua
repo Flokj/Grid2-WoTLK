@@ -151,21 +151,11 @@ function Grid2Options:MakeStatusDebuffsFilterOptions(status, options, optionPara
 end
 
 function Grid2Options:MakeStatusDebuffsGeneralOptions(status, options, optionParams)
-	self:MakeStatusColorOptions(status, options, optionParams)
+	self:MakeStatusAuraColorsOptions(status, options, optionParams)
 	self:MakeStatusBlinkThresholdOptions(status, options, optionParams)
 	self:MakeStatusDebuffsFilterOptions(status, options, optionParams)
-	options.combineStacks = {
-		type = "toggle",
-		name = L["Combine Stacks"],
-		width = "normal",
-		desc = L["Multiple instances of the same debuff will be treated as multiple stacks of the same debuff."],
-		order = 89.95,
-		get = function() return status.dbx.combineStacks end,
-		set = function(_, v)
-			status.dbx.combineStacks = v or nil
-			status:UpdateDB()
-		end,
-	}
+	self:MakeStatusAuraCombineStacksOptions(status, options, optionParams)
+	self:MakeStatusAuraTextOptions(status, options, optionParams)
 	return options
 end
 
@@ -184,6 +174,12 @@ Grid2Options:RegisterStatusOptions("debuffs", "debuff", function(self, status, o
 		args = list,
 		hidden = function() return status.dbx.auras == nil end,
 	}
+	local load = {}
+	self:MakeStatusLoadOptions(status, load, optionParams)
+	options.load = {
+		type = "group", order = 30, name = L["Load"],
+		args = load,
+	}
 	local indicators = {}
 	self:MakeStatusIndicatorsOptions(status, indicators, optionParams)
 	options.indicators = {
@@ -191,6 +187,6 @@ Grid2Options:RegisterStatusOptions("debuffs", "debuff", function(self, status, o
 		args = indicators,
 	}
 end, {
-	groupOrder = 20, hideTitle = true,
+	groupOrder = 20, hideTitle = true, isDeletable = true,
 	titleIcon = "Interface\\Icons\\Spell_deathknight_strangulate",
 })

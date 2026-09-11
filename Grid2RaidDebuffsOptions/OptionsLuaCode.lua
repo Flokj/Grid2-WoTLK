@@ -91,6 +91,12 @@ end
 -- Extracts Instances & Bosses from the Game Encounter journal, generates lua code with raid debuffs module format.
 function RDO:GenerateEncounterJournalData(isRaid)
 
+	-- 3.3.5 backport: no Encounter Journal on this client (Cata+ API).
+	if not (EJ_GetCurrentTier and EJ_GetInstanceByIndex) then
+		Grid2Options:MessageDialog("Encounter Journal is not available on this client.")
+		return ""
+	end
+
 	local sections, spells = {}, {}
 	local lines = ""
 
