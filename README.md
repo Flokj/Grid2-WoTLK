@@ -1,4 +1,4 @@
-# Grid2 r736 (_WoTLK_)
+# Grid2 2.9.31 (_WoTLK_)
 
 Grid2 is a party/raid unit frame addon.
 
@@ -17,25 +17,45 @@ To open the configuration UI type "/grid2" or left-click the minimap Icon.
 * Grid2 Options
 * ~~Grid2 LDB~~ (_removed as of r732_)
 * Grid2 AOE Heals
+* Grid2 RaidDebuffs (standalone, optional)
 
-**Raid Debuffs** and **Raid Debuffs Options** are included in **Grid2** and **Grid2 Options** respectively.
+**Raid Debuffs** and **Raid Debuffs Options** are also built into **Grid2** and **Grid2 Options** respectively.
 
-## New as of r731
+## New as of 2.9.31 (backported from Grid2-2.9.31-bcc)
+
+### Options UI
+
+* Indicator statuses: current-status list with unassign, move up/down and jump-to-status buttons; available statuses grouped by category
+* Aura lists: spell-name search with suggestions, Track by SpellId, spell links in the list
+* Status pages: full Colors/Highlight/Duration/Value/Text sections, Load filters, Test layout mode
+* Options window: fixed default size with enforced minimum size
 
 ### New Indicators
 
 * glowborder
-* icons
+* icons (with delayed updates for large raids)
 * multibar
 * portrait
 * shape
+* tooltip
+* privateauras (placeholder on 3.3.5a)
 
-## New Statuses
+### New Statuses
 
 * combat
 * combat-mine
 * shields
 * shields-overflow
+* healsaoe, heal-absorbs, phased, summon, unit-index (placeholders/no-ops on 3.3.5a where the client lacks the API)
+
+### Raid Debuffs
+
+* Lich King (WotLK) module active; zone matching by name for 3.3.5a
+
+## Fork features kept
+
+* AOE Heals with map data and chain/highlighter statuses
+* FreeLayout editor, extra themes, UnitPopup menus
 
 ## How to install
 
