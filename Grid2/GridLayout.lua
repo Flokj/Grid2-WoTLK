@@ -212,10 +212,6 @@ end
 
 --{{{ Event handlers
 function Grid2Layout:PLAYER_REGEN_ENABLED()
-	if self.spawnPetsQueued then
-		self.spawnPetsQueued = nil
-		return self:ReloadLayout()
-	end
 	if self.reloadLayoutQueued then
 		return self:ReloadLayout()
 	end
@@ -227,34 +223,9 @@ function Grid2Layout:PLAYER_REGEN_ENABLED()
 	end
 end
 
--- Down-switch hysteresis: during BG fill the roster often flaps across a size
--- boundary (10<->11, 15<->16), and every template switch rebuilds all headers
--- (pet spawn alone is seconds). Up-switches stay instant (new frames are needed),
--- but a down-switch within 10s of the previous switch waits for calm instead of
--- rebuilding twice. Latest change always wins.
-local groupOrder = { solo = 1, party = 2, arena = 3, raid10 = 4, raid15 = 5, raid25 = 6, raid40 = 7 }
-local SWITCH_CALM = 10
 function Grid2Layout:Grid_GroupTypeChanged(_, type)
 	Grid2Layout:Debug("GroupTypeChanged", type)
-	local prev = self.partyType
 	self.partyType = type
-	if self.switchTimer then
-		Grid2:CancelTimer(self.switchTimer)
-		self.switchTimer = nil
-	end
-	local newRank, prevRank = groupOrder[type] or 0, groupOrder[prev] or 0
-	if newRank < prevRank and (GetTime() - (self.lastSwitch or 0)) < SWITCH_CALM then
-		local want = type
-		self.switchTimer = Grid2:ScheduleTimer(function()
-			self.switchTimer = nil
-			if self.partyType == want then
-				self.lastSwitch = GetTime()
-				self:ReloadLayout()
-			end
-		end, SWITCH_CALM)
-		return
-	end
-	self.lastSwitch = GetTime()
 	self:ReloadLayout()
 end
 
@@ -413,12 +384,6 @@ local function ForceFramesCreation(header, headerType)
 	local maxFrames = maxColumns * unitsPerColumn
 	if headerType == "raidpet" or headerType == "partypet" then
 		maxFrames = math.min(maxFrames, math.max(CountLivePets() + 4, 5))
-		-- 3.3.5: pre-spawning secure pet buttons in combat hangs the client;
-		-- defer to regen, LoadLayout will show the header for real later.
-		if InCombatLockdown() then
-			Grid2Layout.spawnPetsQueued = true
-			return
-		end
 	end
 	local count = header.FrameCount
 	if not count or count < maxFrames then
