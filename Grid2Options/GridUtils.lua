@@ -378,7 +378,8 @@ end
 --  nil      > Only indicator:UpdateDB() is called
 --  key      > method defined inside indicator to execute after loading config
 -- extraAction
--- 	"Update" > Update all indicators in all registered frame units
+-- 	"Update" > Update all indicators in all registered frame units (kept for compatibility,
+--  frame units are now always updated for bcc parity: detaching a status must clear its visual immediately)
 function Grid2Options:RefreshIndicator(indicator, method, extraAction)
 	if method == "Create" then
 		Grid2Frame:WithAllFrames(indicator, "Disable")
@@ -392,9 +393,10 @@ function Grid2Options:RefreshIndicator(indicator, method, extraAction)
 	if method == "Create" then
 		Grid2Frame:WithAllFrames(indicator, "Layout")
 	end
-	if method == "Create" or method == "Update" or extraAction == "Update" then
-		Grid2Frame:UpdateIndicators()
-	end
+	-- bcc parity: Grid2-2.9.31-bcc always calls Grid2Frame:UpdateIndicators() here.
+	-- Without it RefreshIndicator(indicator, "Layout") only re-layouts but never
+	-- re-evaluates GetCurrentStatus(), so an unassigned status stays stuck on the frames.
+	Grid2Frame:UpdateIndicators()
 end
 
 -- Grid2Options:GetLayouts()
