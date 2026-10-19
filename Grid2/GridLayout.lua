@@ -363,28 +363,13 @@ end
 
 -- Precreate frames to avoid a blizzard bug that prevents initializing unit frames in combat
 -- http://forums.wowace.com/showpost.php?p=307503&postcount=3163
--- 3.3.5 backport: pet buttons cost ~7x player buttons to create on this client
--- (measured: 15 pet frames = 3.2s), so the pet header pre-spawns only live pets
--- + slack instead of the full maxColumns*unitsPerColumn grid. Pets joining later
--- are created on demand (out of combat); only a pet joining mid-combat waits.
-local function CountLivePets()
-	local n = 0
-	if UnitInRaid("player") then
-		for i = 1, 40 do if UnitExists("raidpet" .. i) then n = n + 1 end end
-	else
-		if UnitExists("pet") then n = n + 1 end
-		for i = 1, 4 do if UnitExists("partypet" .. i) then n = n + 1 end end
-	end
-	return n
-end
-local function ForceFramesCreation(header, headerType)
+-- (3.3.5 backport: full pet grid pre-spawned out of combat, as in bcc 2.9.31;
+-- a pet button created by the client mid-combat taints, so we eat the load lag.)
+local function ForceFramesCreation(header)
 	local startingIndex = header:GetAttribute("startingIndex")
 	local maxColumns = header:GetAttribute("maxColumns") or 1
 	local unitsPerColumn = header:GetAttribute("unitsPerColumn") or 5
 	local maxFrames = maxColumns * unitsPerColumn
-	if headerType == "raidpet" or headerType == "partypet" then
-		maxFrames = math.min(maxFrames, math.max(CountLivePets() + 4, 5))
-	end
 	local count = header.FrameCount
 	if not count or count < maxFrames then
 		header:Show()
@@ -433,7 +418,7 @@ function Grid2Layout:LoadLayout(layoutName)
 				SetAllAttributes(layoutGroup, p, defaults)
 			end
 			SetAllAttributes(layoutGroup, p, l, true)
-			ForceFramesCreation(layoutGroup, type)
+			ForceFramesCreation(layoutGroup)
 			layoutGroup:SetOrientation(horizontal)
 		end
 		self:PlaceGroup(layoutGroup, i)
