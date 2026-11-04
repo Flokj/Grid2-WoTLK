@@ -481,6 +481,8 @@ function DungeonRole:GetText(unit)
 end
 
 function DungeonRole:UpdateDB()
+	isValidRole["TANK"] = (not self.dbx.hideTanks) or nil
+	isValidRole["HEALER"] = (not self.dbx.hideHealers) or nil
 	isValidRole["DAMAGER"] = (not self.dbx.hideDamagers) or nil
 	self.roleTexture = self.dbx.useAlternateIcons and "Interface\\LFGFrame\\LFGROLE" or "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
 	self.TexCoordFunc = self.dbx.useAlternateIcons and GetTexCoordsForRoleSmall or GetTexCoordsForRoleSmallCircle

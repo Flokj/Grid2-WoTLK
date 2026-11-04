@@ -826,6 +826,8 @@ L["Low absorb threshold"] = true
 -- role related statuses
 L["Hide in combat"] = true
 L["Hide Damagers"] = true
+L["Hide Tanks"] = true
+L["Hide Healers"] = true
 L["Use alternate icons"] = true
 L["Show everywhere"] = true
 L["Show even when not in a dungeon"] = true

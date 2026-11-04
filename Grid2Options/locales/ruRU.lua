@@ -723,6 +723,8 @@ L["The value below which a shield is considered medium."] = "Значение, �
 -- role related statuses
 -- L["Hide in combat"] = ""
 -- L["Hide Damagers"] = ""
+-- L["Hide Tanks"] = "Скрыть танков"
+-- L["Hide Healers"] = "Скрыть хилов"
 -- L["Use alternate icons"] = ""
 -- L["Show everywhere"] = ""
 -- L["Show even when not in a dungeon"] = ""

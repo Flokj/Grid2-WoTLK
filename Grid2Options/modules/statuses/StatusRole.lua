@@ -42,6 +42,36 @@ local function MakeStatusDungeonRoleOptions(self, status, options, optionParams)
 			status:UpdateAllUnits()
 		end
 	}
+	options.hideTanks = {
+		type = "toggle",
+		name = L["Hide Tanks"],
+		desc = L["Hide Tanks"],
+		width = "full",
+		order = 51,
+		get = function()
+			return status.dbx.hideTanks
+		end,
+		set = function(_, v)
+			status.dbx.hideTanks = v or nil
+			status:UpdateDB()
+			status:UpdateAllUnits()
+		end
+	}
+	options.hideHealers = {
+		type = "toggle",
+		name = L["Hide Healers"],
+		desc = L["Hide Healers"],
+		width = "full",
+		order = 52,
+		get = function()
+			return status.dbx.hideHealers
+		end,
+		set = function(_, v)
+			status.dbx.hideHealers = v or nil
+			status:UpdateDB()
+			status:UpdateAllUnits()
+		end
+	}
 	options.useAlternateIcons = {
 		type = "toggle",
 		name = L["Use alternate icons"],
