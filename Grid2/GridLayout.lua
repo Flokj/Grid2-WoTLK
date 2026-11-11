@@ -199,13 +199,16 @@ function Grid2Layout:OnModuleEnable()
 		self:ReloadLayout()
 	end
 	self:RegisterMessage("Grid_GroupTypeChanged")
-	self:RegisterMessage("Grid_UpdateLayoutSize", "UpdateSize")
+	self:RegisterMessage("Grid_UpdateLayoutSize", "QueueUpdateSize")
+	self:RegisterMessage("Grid_RosterUpdated", "QueueUpdateSize")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 end
 
 function Grid2Layout:OnModuleDisable()
+	self:CancelQueuedSize()
 	self:UnregisterMessage("Grid_GroupTypeChanged")
-	self:UnregisterMessage("Grid_UpdateLayoutSize", "UpdateSize")
+	self:UnregisterMessage("Grid_UpdateLayoutSize", "QueueUpdateSize")
+	self:UnregisterMessage("Grid_RosterUpdated", "QueueUpdateSize")
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	self.frame:Hide()
 end
@@ -434,6 +437,25 @@ function Grid2Layout:UpdateDisplay()
 	self:UpdateColor()
 	self:CheckVisibility()
 	self:UpdateSize()
+end
+
+-- bcc parity (RunThrottled in 2.9.33): defer the size recalc so that Blizzard
+-- has already resized the secure headers when UpdateSize reads their bounds;
+-- a synchronous call measures stale full-pool sizes (bg for 8 slots, 5 units).
+function Grid2Layout:QueueUpdateSize()
+	if self.updateSizeTimer then return end
+	self.updateSizeTimer = Grid2:ScheduleTimer(function()
+		Grid2Layout.updateSizeTimer = nil
+		Grid2Layout:UpdateSize()
+	end, 0.1)
+end
+
+-- cancel a pending deferred resize so it cannot fire while the module is off
+function Grid2Layout:CancelQueuedSize()
+	if self.updateSizeTimer then
+		Grid2:CancelTimer(self.updateSizeTimer, true)
+		self.updateSizeTimer = nil
+	end
 end
 
 function Grid2Layout:UpdateSize()
