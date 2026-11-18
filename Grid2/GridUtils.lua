@@ -4,6 +4,14 @@ Grid2.callbacks = Grid2.callbacks or LibStub("CallbackHandler-1.0"):New(Grid2)
 Grid2.dummyTable = Grid2.dummyTable or {}
 
 function Grid2.Dummy() end
+-- retrieve a config value, falling back to the default when the option is not set
+function Grid2.GetSetupValue(condition, value, default)
+	if condition and value ~= nil then
+		return value
+	else
+		return default
+	end
+end
 
 function Grid2:HideBlizzardRaidFrames()
 	if _G.CompactRaidFrameManager then --check if Blizzard_CompactRaidFrames isn't already disabled by the user

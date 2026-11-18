@@ -1,7 +1,7 @@
 -- Compatibility shims for the 3.3.5a client (Lua 5.1).
 -- The 3.3.5 client has no C_Spell / C_UnitAuras / C_Timer / C_IncomingSummon /
 -- UnitGetTotalAbsorbs / UnitPhaseReason / IsInRaid-style modern APIs and no
--- Frame:SetSize / Frame:SetShown, so this file publishes version flags and a
+-- Frame:SetShown, so this file publishes version flags and a
 -- Grid2.API table bound to the native 3.3.5 functions. Must be loaded right
 -- after GridCore.lua and before any file using Grid2.API or Grid2.isClassic.
 

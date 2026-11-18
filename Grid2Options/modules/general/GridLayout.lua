@@ -284,6 +284,46 @@ Grid2Options:AddGeneralOptions("General", "Layout Settings", {
 			["BOTTOMRIGHT"] = L["BOTTOMRIGHT"]
 		}
 	},
+	detachheader = {
+		type = "header",
+		order = order_anchor + 10,
+		name = L["Detached Groups"]
+	},
+	detachall = {
+		type = "toggle",
+		width = "full",
+		name = L["Detach all groups"],
+		desc = L["Enable this option to detach unit frame groups, so each group can be moved individually."],
+		order = order_anchor + 11,
+		get = function()
+			return Grid2Layout.db.profile.detachedHeaders == "player"
+		end,
+		set = function(_, v)
+			Grid2Layout.db.profile.detachedHeaders = v and "player" or nil
+			Grid2Layout:ReloadLayout()
+		end
+	},
+	detachpets = {
+		type = "toggle",
+		width = "full",
+		name = L["Detach pets groups"],
+		desc = L["Enable this option to detach the pets group, so pets group can be moved individually."],
+		order = order_anchor + 12,
+		get = function()
+			return Grid2Layout.db.profile.detachedHeaders ~= nil
+		end,
+		set = function(_, v)
+			if v then
+				Grid2Layout.db.profile.detachedHeaders = "pet"
+			elseif Grid2Layout.db.profile.detachedHeaders == "pet" then
+				Grid2Layout.db.profile.detachedHeaders = nil
+			end
+			Grid2Layout:ReloadLayout()
+		end,
+		disabled = function()
+			return Grid2Layout.db.profile.detachedHeaders == "player"
+		end
+	},
 	clamp = {
 		type = "toggle",
 		name = L["Clamped to screen"],
@@ -308,3 +348,172 @@ Grid2Options:AddGeneralOptions("General", "Layout Settings", {
 		end
 	}
 })
+
+--[[ Detached groups: position and anchors of every group detached in the active layout ]]--
+
+-- 3.3.5 has no GetPhysicalScreenSize (AddOns provide it via LibCompat), so fall
+-- back to the resolution list when the API is missing
+local function PhysicalScreenSize()
+	local width, height
+	if GetPhysicalScreenSize then
+		width, height = GetPhysicalScreenSize()
+	elseif GetScreenResolutions then
+		local resolutions = { GetScreenResolutions() }
+		local current = GetCurrentResolution and GetCurrentResolution() or #resolutions
+		local res = resolutions[current] or resolutions[#resolutions]
+		width, height = string.match(res or "", "(%d+)x(%d+)")
+	end
+	return tonumber(width) or 1024, tonumber(height) or 768
+end
+
+local function GetScreenRatio(horizontal)
+	local w, h = PhysicalScreenSize()
+	local size = UIParent[horizontal and "GetWidth" or "GetHeight"](UIParent) * UIParent:GetEffectiveScale()
+	return (horizontal and w or h) / size
+end
+
+local function GetPhysicalPos(value, horizontal)
+	return floor(value * GetScreenRatio(horizontal) + 0.5)
+end
+
+-- AceDB removes defaults from inactive profiles; fetch the profile in each callback.
+local function EnsureProfileTables()
+	local p = Grid2Layout.db and Grid2Layout.db.profile
+	if not p then return nil end
+	p.Positions = p.Positions or {}
+	p.anchors = p.anchors or {}
+	p.groupAnchors = p.groupAnchors or {}
+	p.groupHorizontals = p.groupHorizontals or {}
+	return p
+end
+
+local function SetPositionValue(key, index, value, horizontal)
+	local p = EnsureProfileTables()
+	local pos = p and p.Positions[key]
+	if not pos then
+		pos = { p.anchors[key] or p.anchor, p.PosX, p.PosY }
+		p.Positions[key] = pos
+	end
+	pos[index] = value / GetScreenRatio(horizontal)
+	Grid2Layout:ReloadLayout()
+end
+
+local headerAnchorPoints = { [""] = L["Default"], CENTER = L["CENTER"], TOP = L["TOP"], BOTTOM = L["BOTTOM"], LEFT = L["LEFT"],
+	RIGHT = L["RIGHT"], TOPLEFT = L["TOPLEFT"], TOPRIGHT = L["TOPRIGHT"], BOTTOMLEFT = L["BOTTOMLEFT"], BOTTOMRIGHT = L["BOTTOMRIGHT"] }
+local groupAnchorPoints = { [""] = L["Default"], TOPLEFT = L["TOPLEFT"], TOPRIGHT = L["TOPRIGHT"], BOTTOMLEFT = L["BOTTOMLEFT"], BOTTOMRIGHT = L["BOTTOMRIGHT"] }
+local orientationValues = { [""] = L["Default"], horizontal = L["Horizontal"], vertical = L["Vertical"] }
+
+local function MakeDetachedGroupsOptions()
+	local args = {}
+	if not Grid2Layout.layoutHasDetached then
+		args.none = {
+			type = "description",
+			order = 1,
+			name = L["No detached groups in the current layout."] .. "\n\n" ..
+				L["Detach groups in the Layout Settings section, or per header in the layouts editor, then refresh this list."],
+		}
+	else
+		local order = 0
+		for _, header in Grid2Layout:IterateHeaders(true) do
+			order = order + 1
+			local key, prefix = header.headerPosKey, "group" .. order
+			local function GetPos(index, horizontal)
+				local p = EnsureProfileTables()
+				local pos = p.Positions[key]
+				return GetPhysicalPos(pos and pos[index] or (index == 2 and p.PosX or p.PosY), horizontal)
+			end
+			args[prefix .. "head"] = {
+				type = "header",
+				order = order * 10,
+				name = string.format("%s %d (%s)", L["Group"], header.headerSetupIndex or order, L[header.headerUnitType] or tostring(header.headerUnitType)),
+			}
+			args[prefix .. "posx"] = {
+				type = "range",
+				name = L["Horizontal Position"],
+				desc = L["Adjust the horizontal position of this group."],
+				order = order * 10 + 1,
+				width = 1.2,
+				softMin = -2048,
+				softMax = 2048,
+				step = 1,
+				get = function() return GetPos(2, true) end,
+				set = function(_, v) SetPositionValue(key, 2, v, true) end,
+			}
+			args[prefix .. "posy"] = {
+				type = "range",
+				name = L["Vertical Position"],
+				desc = L["Adjust the vertical position of this group."],
+				order = order * 10 + 2,
+				width = 1.2,
+				softMin = -2048,
+				softMax = 2048,
+				step = 1,
+				get = function() return GetPos(3, false) end,
+				set = function(_, v) SetPositionValue(key, 3, v, false) end,
+			}
+			args[prefix .. "anchor"] = {
+				type = "select",
+				name = L["Anchor"],
+				desc = L["Sets where this group is anchored on the screen."],
+				order = order * 10 + 3,
+				width = 0.9,
+				get = function() return EnsureProfileTables().anchors[key] or "" end,
+				set = function(_, v)
+					EnsureProfileTables().anchors[key] = v ~= "" and v or nil
+					Grid2Layout:ReloadLayout()
+				end,
+				values = headerAnchorPoints,
+			}
+			args[prefix .. "ganchor"] = {
+				type = "select",
+				name = L["Group Anchor"],
+				desc = L["Sets where the units of this group are anchored inside the group frame."],
+				order = order * 10 + 4,
+				width = 0.9,
+				get = function() return EnsureProfileTables().groupAnchors[key] or "" end,
+				set = function(_, v)
+					EnsureProfileTables().groupAnchors[key] = v ~= "" and v or nil
+					Grid2Layout:ReloadLayout()
+				end,
+				values = groupAnchorPoints,
+			}
+			args[prefix .. "orient"] = {
+				type = "select",
+				name = L["Groups Orientation"],
+				desc = L["Switch between horzontal/vertical groups."],
+				order = order * 10 + 5,
+				width = 0.6,
+				get = function()
+					local v = EnsureProfileTables().groupHorizontals[key]
+					if v == nil then return "" end
+					return v and "horizontal" or "vertical"
+				end,
+				set = function(_, v)
+					local groupHorizontals = EnsureProfileTables().groupHorizontals
+					if v == "" then
+						groupHorizontals[key] = nil
+					else
+						groupHorizontals[key] = (v == "horizontal")
+					end
+					Grid2Layout:ReloadLayout()
+				end,
+				values = orientationValues,
+			}
+		end
+	end
+	args.refresh = {
+		type = "execute",
+		width = "half",
+		name = L["Refresh"],
+		desc = L["Rebuild the list of detached groups."],
+		order = 9000,
+		func = function()
+			local section = Grid2Options.options.args.general.args["General"].args["Detached Groups"]
+			section.args = MakeDetachedGroupsOptions()
+			LibStub("AceConfigRegistry-3.0"):NotifyChange("Grid2")
+		end,
+	}
+	return args
+end
+
+Grid2Options:AddGeneralOptions("General", "Detached Groups", MakeDetachedGroupsOptions())

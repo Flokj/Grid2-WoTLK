@@ -338,6 +338,23 @@ local function LoadLayoutHeader(layoutName, layout, index, header)
 		end,
 		disabled = disabled
 	}
+	args["detach" .. index] = {
+		type = "toggle",
+		order = order + 16,
+		width = "half",
+		name = L["Detach Header"],
+		desc = L["Allow to move this header independent of the other headers."],
+		get = function()
+			return header.detachHeader
+		end,
+		set = function(_, v)
+			header.detachHeader = v or nil
+			if Grid2Layout.layoutName == layoutName then
+				Grid2Layout:LoadLayout(layoutName)
+			end
+		end,
+		disabled = disabled or index == 1
+	}
 	if not disabled then
 		args["action" .. index] = {
 			type = "select",
