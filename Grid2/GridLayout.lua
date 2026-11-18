@@ -409,6 +409,11 @@ local function SetAllAttributes(header, p, list, fix)
 		-- force these so that the bug in SecureGroupPetHeader_Update doesn't trigger
 		header:SetLayoutAttribute("useOwnerUnit", false)
 		header:SetLayoutAttribute("unitsuffix", nil)
+		-- 3.3.5 FrameXML strsplit-crashes (line 1124) when a pet header has groupBy
+		-- set but no groupingOrder; pets then just sort by the owner class order
+		if header:GetAttribute("groupBy") and not header:GetAttribute("groupingOrder") then
+			header:SetLayoutAttribute("groupingOrder", Grid2Layout.DEFAULT_PET_ORDER)
+		end
 	end
 end
 

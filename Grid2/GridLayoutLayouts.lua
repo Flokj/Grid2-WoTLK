@@ -5,6 +5,8 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Grid2")
 
 local DEFAULT_GROUP_ORDER = "WARRIOR,DEATHKNIGHT,ROGUE,PALADIN,DRUID,SHAMAN,PRIEST,MAGE,WARLOCK,HUNTER"
 local DEFAULT_PET_ORDER = "HUNTER,WARLOCK,DEATHKNIGHT,PRIEST,MAGE,DRUID,SHAMAN,WARRIOR,ROGUE,PALADIN"
+-- GridLayout.lua guards pet headers with it (SecureGroupPetHeader_Update bug)
+Grid2Layout.DEFAULT_PET_ORDER = DEFAULT_PET_ORDER
 local _
 
 local groupFilters = {
