@@ -16,6 +16,15 @@ local directions = {}
 local UnitCheck
 local mouseover = ""
 
+local CODE = [[
+local UnitIsUnit = UnitIsUnit
+local UnitInRange = UnitInRange
+local UnitIsVisible = UnitIsVisible
+local UnitIsDeadOrGhost = UnitIsDeadOrGhost
+local UnitGroupRolesAssigned = Grid2.UnitGroupRolesAssigned
+return function(unit, mouseover) return (%s) end
+]]
+
 local function UpdateDirections()
 	local x1, y1 = GetPlayerMapPosition("player")
 	if x1 == 0 then
@@ -67,49 +76,45 @@ function Direction:ClearDirections()
 	end
 end
 
-local t = {}
-local isRestr = nil
+-- 3.3.5: no Grid2Frame:SetEventHook, track mouseover via frame hooks
+local SetMouseoverHooks
+do
+	local hooksInstalled
+	local function OnMouseEnter(_, frame)
+		if frame and frame.unit then
+			mouseover = frame.unit
+		end
+	end
+	local function OnMouseLeave()
+		mouseover = ""
+	end
+	SetMouseoverHooks = function(enable)
+		if enable and not hooksInstalled and Grid2Frame.OnFrameEnter then
+			hooksecurefunc(Grid2Frame, "OnFrameEnter", OnMouseEnter)
+			hooksecurefunc(Grid2Frame, "OnFrameLeave", OnMouseLeave)
+			hooksInstalled = true
+		end
+		if not enable then
+			mouseover = ""
+		end
+	end
+end
+
 function Direction:UpdateDB()
-	isRestr = nil
-	wipe(t)
-
-	t[1] = "return function(unit) return"
-	if not self.dbx.showOnlyStickyUnits then
-		if self.dbx.ShowOutOfRange then
-			t[#t + 1] = "and (not UnitInRange(unit))"
-			isRestr = true
-		end
-		if self.dbx.ShowVisible then
-			t[#t + 1] = "and UnitIsVisible(unit)"
-			isRestr = true
-		end
-		if self.dbx.ShowDead then
-			t[#t + 1] = "and UnitIsDeadOrGhost(unit)"
-			isRestr = true
-		end
-	end
-	if isRestr or self.dbx.showOnlyStickyUnits then
-		if self.dbx.StickyTarget then
-			t[#t + 1] = "or UnitIsUnit(unit, 'target')"
-		end
-		if self.dbx.StickyMouseover then
-			t[#t + 1] = "or UnitIsUnit(unit, 'mouseover')"
-		end
-		if self.dbx.StickyFocus then
-			t[#t + 1] = "or UnitIsUnit(unit, 'focus')"
-		end
-		if self.dbx.StickyTanks then
-			t[#t + 1] = "or (Grid2.GetUnitRole(unit) == 'TANK')"
-		end
-	end
-	if t[2] then
-		t[2] = t[2]:sub(isRestr and 5 or 4)
-	else
-		t[2] = "true"
-	end
-	t[#t + 1] = "end"
-
-	UnitCheck = assert(loadstring(table.concat(t, " ")))()
+	local dbx, t, u = self.dbx, {}, {}
+	SetMouseoverHooks(dbx.StickyMouseover)
+	if dbx.ShowOutOfRange then u[#u + 1] = "(not UnitInRange(unit))" end
+	if dbx.ShowVisible then u[#u + 1] = "UnitIsVisible(unit)" end
+	if dbx.ShowDead then u[#u + 1] = "UnitIsDeadOrGhost(unit)" end
+	if #u > 0 then t[#t + 1] = table.concat(u, dbx.lazyFilter and " or " or " and ") end
+	wipe(u)
+	if dbx.StickyTarget then u[#u + 1] = "UnitIsUnit(unit,'target')" end
+	if dbx.StickyMouseover then u[#u + 1] = "UnitIsUnit(unit,mouseover)" end
+	if dbx.StickyFocus then u[#u + 1] = "UnitIsUnit(unit,'focus')" end
+	if dbx.StickyTanks then u[#u + 1] = "UnitGroupRolesAssigned(unit)=='TANK'" end
+	if #u > 0 then t[#t + 1] = table.concat(u, " or ") end
+	local s = string.format(CODE, #t > 0 and table.concat(t, dbx.showAlwaysStickyUnits and ") or (" or ") and (") or "true")
+	UnitCheck = assert(loadstring(s))()
 end
 
 function Direction:OnEnable()
@@ -122,6 +127,7 @@ function Direction:OnEnable()
 end
 
 function Direction:OnDisable()
+	SetMouseoverHooks(false)
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	self:UnregisterEvent("ZONE_CHANGED")
 	self:UnregisterEvent("ZONE_CHANGED_NEW_AREA")

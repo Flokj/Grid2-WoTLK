@@ -23,10 +23,7 @@ Grid2Options:RegisterStatusOptions("direction", "target", function(self, status,
 	options.spacer = {
 		type = "header",
 		order = 99,
-		name = L["Display"],
-		hidden = function()
-			return status.dbx.showOnlyStickyUnits
-		end
+		name = L["Display"]
 	}
 	options.showOutOfRange = {
 		type = "toggle",
@@ -40,9 +37,6 @@ Grid2Options:RegisterStatusOptions("direction", "target", function(self, status,
 		set = function(_, v)
 			status.dbx.ShowOutOfRange = v or nil
 			status:UpdateDB()
-		end,
-		hidden = function()
-			return status.dbx.showOnlyStickyUnits
 		end
 	}
 	options.showVisible = {
@@ -57,9 +51,6 @@ Grid2Options:RegisterStatusOptions("direction", "target", function(self, status,
 		set = function(_, v)
 			status.dbx.ShowVisible = v or nil
 			status:UpdateDB()
-		end,
-		hidden = function()
-			return status.dbx.showOnlyStickyUnits
 		end
 	}
 	options.showDead = {
@@ -74,9 +65,23 @@ Grid2Options:RegisterStatusOptions("direction", "target", function(self, status,
 		set = function(_, v)
 			status.dbx.ShowDead = v or nil
 			status:UpdateDB()
+		end
+	}
+	options.strictFilter = {
+		type = "toggle",
+		order = 121,
+		width = "full",
+		name = L["Show only when all conditions are met"],
+		tristate = false,
+		get = function()
+			return not status.dbx.lazyFilter
+		end,
+		set = function(_, v)
+			status.dbx.lazyFilter = not v or nil
+			status:UpdateDB()
 		end,
 		hidden = function()
-			return status.dbx.showOnlyStickyUnits
+			return (status.dbx.ShowDead and 1 or 0) + (status.dbx.ShowVisible and 1 or 0) + (status.dbx.ShowOutOfRange and 1 or 0) <= 1
 		end
 	}
 	options.spacer2 = {
@@ -140,18 +145,22 @@ Grid2Options:RegisterStatusOptions("direction", "target", function(self, status,
 			status:UpdateDB()
 		end
 	}
-	options.showOnlyStickyUnits = {
+	options.showAlwaysStickyUnits = {
 		type = "toggle",
 		order = 170,
 		width = "full",
-		name = L["Show only selected sticky units"],
+		name = L["Show always for selected sticky units"],
 		tristate = false,
 		get = function()
-			return status.dbx.showOnlyStickyUnits
+			return status.dbx.showAlwaysStickyUnits
 		end,
 		set = function(_, v)
-			status.dbx.showOnlyStickyUnits = v or nil
+			status.dbx.showAlwaysStickyUnits = v or nil
 			status:UpdateDB()
+		end,
+		hidden = function()
+			local dbx = status.dbx
+			return not ((dbx.StickyMouseover or dbx.StickyFocus or dbx.StickyTarget or dbx.StickyTanks) and (dbx.ShowOutOfRange or dbx.ShowVisible or dbx.ShowDead))
 		end
 	}
 end, {
